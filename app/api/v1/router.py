@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 
-v1_router = APIRouter()
+from app.api.v1.endpoints.jobs import router as jobs_router
 
-# Include endpoint routers here, e.g.:
-# from app.api.v1.endpoints import items
-# v1_router.include_router(items.router, prefix="/items", tags=["items"])
+v1_router = APIRouter()
+v1_router.include_router(jobs_router, prefix="/jobs", tags=["jobs"])
