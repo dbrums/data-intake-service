@@ -43,6 +43,7 @@ addopts = ["--strict-markers", "--strict-config", "-ra"]
 source = ["app"]
 omit = ["*/tests/*", "*/__init__.py", "*/alembic/*"]
 branch = true
+relative_files = true
 
 [tool.coverage.report]
 precision = 2
