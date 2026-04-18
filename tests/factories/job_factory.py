@@ -3,7 +3,6 @@ from typing import Any
 from app.db.models.job import Job
 from app.schemas.job import JobCreate
 
-
 DEFAULTS = {
     "dataset_type": "test",
     "schema_version": "v1",

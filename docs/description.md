@@ -2,7 +2,7 @@
 
 A FastAPI service that accepts dataset uploads or pull requests, validates them against declared schemas and business rules, stores results, and exposes job status and validation reports through an API.
 
-This is a strong first FastAPI project because it is not just CRUD. It naturally forces you to build the things that matter for a senior data engineer: API boundaries, schema validation, async job processing, idempotency, retries, observability, stateful workflows, API client behavior, packaging, and deployment. It also aligns closely with the concepts in your attached document. 
+This is a strong first FastAPI project because it is not just CRUD. It naturally forces you to build the things that matter for a senior data engineer: API boundaries, schema validation, async job processing, idempotency, retries, observability, stateful workflows, API client behavior, packaging, and deployment. It also aligns closely with the concepts in your attached document.
 
 ## What the product does
 
@@ -219,7 +219,7 @@ Optional:
 
 Make state transitions explicit and validated. Do not allow arbitrary updates from anywhere.
 
-This directly teaches workflow state management, which your document correctly highlights as essential. 
+This directly teaches workflow state management, which your document correctly highlights as essential.
 
 ---
 
@@ -235,7 +235,7 @@ When a client submits `POST /jobs` with an `idempotency_key`, the API should:
 
 Store the idempotency key with enough context to prevent accidental duplication.
 
-This is a core senior-DE concept because it shows up everywhere: pipeline reruns, delivery retries, webhook handling, duplicate loads. Your attached document is right to elevate it. 
+This is a core senior-DE concept because it shows up everywhere: pipeline reruns, delivery retries, webhook handling, duplicate loads. Your attached document is right to elevate it.
 
 ---
 

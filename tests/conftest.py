@@ -13,7 +13,6 @@ from app.main import app
 from tests.factories.job_factory import job_factory, job_create_factory
 from tests.fakes.fake_job_repository import FakeJobRepository
 
-
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
 

@@ -2,7 +2,7 @@
 name = "data-intake-service"
 version = "0.1.0"
 description = "Data Intake Service"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.34,<1",
@@ -15,14 +15,82 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8,<9",
-    "pytest-asyncio>=0.25,<1",
-    "pytest-cov>=6,<7"
+    "pytest>=9.0.3,<10",
+    "pytest-asyncio>=0.27,<1",
+    "pytest-cov>=6,<7",
+    "black>=26.3.1,<27",
+    "mypy>=1.0,<2",
+    "pip-audit>=2.7,<3",
+    "pre-commit>=4.0,<5",
+    "commitizen>=4.0,<5",
 ]
 
 [build-system]
 requires = ["setuptools>=75", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["tests*", "alembic*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["*/tests/*", "*/__init__.py", "*/alembic/*"]
+branch = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+fail_under = 70.0
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.eggs
+  | \.git
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.venv
+  | _build
+  | build
+  | dist
+  | alembic/versions
+)/
+'''
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_unimported = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+check_untyped_defs = true
+strict_equality = true
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = ["alembic.*", "sqlalchemy.*"]
+ignore_missing_imports = true
