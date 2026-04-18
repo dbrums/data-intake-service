@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -5,7 +6,17 @@ from sqlalchemy.orm import Session
 from app.db.models.job import Job
 
 
-class JobRepository:
+class AbstractJobRepository(ABC):
+    @abstractmethod
+    def create(self, job: Job) -> Job:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_by_id(self, job_id: UUID) -> Job | None:
+        raise NotImplementedError
+
+
+class SqlAlchemyJobRepository(AbstractJobRepository):
     def __init__(self, session: Session):
         self._session = session
 

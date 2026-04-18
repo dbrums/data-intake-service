@@ -1,10 +1,10 @@
 from app.db.models.job import Job
-from app.repositories.job_repository import JobRepository
+from app.repositories.job_repository import AbstractJobRepository
 from app.schemas.job import JobCreate
 
 
 class JobService:
-    def __init__(self, repo: JobRepository):
+    def __init__(self, repo: AbstractJobRepository):
         self._repo = repo
 
     def create_job(self, payload: JobCreate) -> Job:
