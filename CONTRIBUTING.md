@@ -1,6 +1,8 @@
 # Contributing to Data Intake Service
 
-Thank you for contributing! This guide will help you get started.
+Thank you for your interest in contributing!
+
+**Note:** This is a personal learning project focused on practicing production-ready Python backend development and data engineering API patterns. While contributions are welcome, the primary goal is educational rather than building production software. The service is intentionally over-engineered to practice various design patterns and tools—in reality, you'd use existing cloud data tooling instead.
 
 ## Getting Started
 
@@ -194,12 +196,7 @@ Place tests in the appropriate directory:
 
 ### Test Fixtures
 
-Use fixtures from `tests/conftest.py`:
-- `db_session` - Database session for integration tests
-- `client` - FastAPI test client
-- `fake_job_repo` - Fake repository for unit tests
-- `job` - Sample Job model instance
-- `job_create` - Sample JobCreate schema
+Use fixtures from `tests/conftest.py`
 
 ## Code Style
 
