@@ -56,11 +56,17 @@ Run these commands in parallel:
 - `gh pr list --head $(git branch --show-current) --json number,title,state` - Check if PR exists
 
 **If PR already exists:**
+- Parse PR number from JSON output: `echo "$pr_json" | jq -r '.[0].number'`
+- Parse PR title: `echo "$pr_json" | jq -r '.[0].title'`
+- Get PR URL: `gh pr view <number> --json url -q .url`
+- Store these for later use
 - Show: "PR #123 already exists: [title]"
-- Ask: "Would you like to: (1) update PR description, (2) view PR, or (3) cancel?"
-- If update: Continue to description generation
-- If view: Run `gh pr view` and stop
-- If cancel: Stop
+- Show: "URL: [pr-url]"
+- Ask: "Would you like to: (1) update title and description, (2) update description only, (3) view PR, or (4) cancel?"
+- If option 1: Continue to title and description generation (will use `gh pr edit` with both)
+- If option 2: Skip title generation, continue to description generation only (will preserve existing title)
+- If option 3: Run `gh pr view` and stop
+- If option 4: Stop
 
 ### Step 3: Analyze and Generate PR Title
 
@@ -186,6 +192,12 @@ Use AskUserQuestion tool.
 
 ### Step 6: Handle User Response
 
+**Determine operation mode:**
+- If PR already exists (from Step 2): Update mode
+- If PR doesn't exist: Create mode
+
+#### Create Mode (New PR)
+
 **Option 1: Approve and create PR**
 
 If branch not pushed:
@@ -193,10 +205,11 @@ If branch not pushed:
 - If push fails: Show error and stop
 
 Create PR:
-- Save description to temp file
+- Save description to temp file (use mktemp or .pr-description.tmp)
 - Run: `gh pr create --title "<title>" --body-file <temp-file>`
 - If successful: Show PR URL and number
 - If fails: Show error and suggest manual creation
+- Clean up temp file
 
 **Option 2: Edit**
 
@@ -210,11 +223,74 @@ Description:
 <your description>
 ```
 
-Wait for user input, then create PR with edited content.
+Wait for user input, parse title and description, then create PR with edited content.
 
 **Option 3: Cancel**
 
 Confirm: "❌ Cancelled. No PR created. Run /pr again when ready."
+
+#### Update Mode (Existing PR)
+
+Store the PR number from Step 2's `gh pr list` output.
+
+**If user selected "update title and description" in Step 2:**
+
+Present both title and description for approval (same format as create mode).
+
+**Option 1: Approve and update PR**
+
+Push commits if needed:
+- Check if branch has unpushed commits: `git log origin/$(git branch --show-current)..HEAD`
+- If yes: Run `git push`
+- If push fails: Show error and stop
+
+Update PR:
+- Save description to temp file
+- Run: `gh pr edit <pr-number> --title "<title>" --body-file <temp-file>`
+- If successful: Show "✅ Updated PR #<number>: <title>" and URL
+- If fails: Show error with suggestion
+- Clean up temp file
+
+**Option 2: Edit**
+
+Same as create mode - ask for edited title and description, then update.
+
+**Option 3: Cancel**
+
+Confirm: "❌ Cancelled. PR not updated."
+
+**If user selected "update description only" in Step 2:**
+
+Skip title generation. Only generate and present description.
+
+Present description for approval:
+```
+Proposed PR description update:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<description content>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Current title will be preserved: <existing-title>
+```
+
+**Option 1: Approve and update description**
+
+Push commits if needed (same as above).
+
+Update PR:
+- Save description to temp file
+- Run: `gh pr edit <pr-number> --body-file <temp-file>` (no --title flag)
+- If successful: Show "✅ Updated PR #<number> description"
+- If fails: Show error
+- Clean up temp file
+
+**Option 2: Edit description**
+
+Ask for edited description only, then update.
+
+**Option 3: Cancel**
+
+Confirm: "❌ Cancelled. PR description not updated."
 
 ## Important Rules
 
@@ -371,6 +447,77 @@ Refactors service layer validation and error handling to improve maintainability
 Part of technical debt cleanup, no related issues
 ```
 
+### Updating an Existing PR
+
+**Scenario:** PR #123 exists, you've added new commits addressing review feedback.
+
+**User runs:** `/pr`
+
+**Skill detects existing PR:**
+```
+PR #123 already exists: feat(api): add job endpoint with validation
+URL: https://github.com/user/repo/pull/123
+
+Found 2 new commits since PR was created:
+• def5678 fix(api): add input validation per review
+• ghi9012 test: add edge case tests
+
+Would you like to:
+(1) Update title and description
+(2) Update description only (preserve title)
+(3) View PR
+(4) Cancel
+```
+
+**User selects option 2 (update description only).**
+
+**Skill generates updated description:**
+```
+Proposed PR description update:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## Summary
+Adds POST /api/v1/jobs endpoint for creating dataset validation jobs with schema validation.
+
+## Changes
+- Add JobCreate Pydantic schema with validation rules
+- Implement POST /api/v1/jobs endpoint
+- Add validation for required fields and business rules
+- Return 201 with job ID on success
+- Add input validation for all fields (per review feedback)
+- Add comprehensive edge case testing
+
+## Testing
+- [x] Unit tests for schema validation
+- [x] Integration tests for API endpoint
+- [x] Manual testing with Postman
+- [x] Edge cases: invalid schemas, missing fields, boundary values
+- [x] Negative test cases for validation errors
+
+## Related
+Closes #45
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Current title will be preserved: feat(api): add job endpoint with validation
+
+Would you like to: (1) approve and update, (2) edit description, or (3) cancel?
+```
+
+**User approves.**
+
+**Skill executes:**
+```bash
+# Push new commits
+git push
+
+# Update PR description only
+gh pr edit 123 --body-file /tmp/pr-description.tmp
+
+✅ Updated PR #123 description
+URL: https://github.com/user/repo/pull/123
+```
+
+**Result:** PR description now reflects new testing and changes, title unchanged.
+
 ## Error Handling
 
 ### Uncommitted Changes
@@ -405,8 +552,14 @@ PR #123 already exists: feat(api): add job endpoint
 Status: open
 URL: https://github.com/user/repo/pull/123
 
-Would you like to: (1) update PR description, (2) view PR, or (3) cancel?
+Would you like to:
+(1) Update title and description
+(2) Update description only (preserve title)
+(3) View PR
+(4) Cancel
 ```
+
+**Note:** Options 1 and 2 will push any new commits automatically before updating the PR.
 
 ### GitHub CLI Not Available
 ```
