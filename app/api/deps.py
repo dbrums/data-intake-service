@@ -7,6 +7,6 @@ from sqlalchemy.orm import Session
 from app.db.session import get_session
 
 
-def get_db() -> Generator[Session, None, None]:
+def get_db() -> Generator[Session]:
     """FastAPI dependency that provides a database session."""
     yield from get_session()
