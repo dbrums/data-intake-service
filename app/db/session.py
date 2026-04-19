@@ -22,7 +22,7 @@ SessionLocal = sessionmaker(
 )
 
 
-def get_session() -> Generator[Session, None, None]:
+def get_session() -> Generator[Session]:
     """Yield a database session and ensure it is closed after use."""
     session = SessionLocal()
     try:

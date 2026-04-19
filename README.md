@@ -3,7 +3,7 @@
 [![CI](https://github.com/dbrums/data-intake-service/actions/workflows/ci.yml/badge.svg)](https://github.com/dbrums/data-intake-service/actions/workflows/ci.yml)
 [![pre-commit](https://github.com/dbrums/data-intake-service/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/dbrums/data-intake-service/actions/workflows/pre-commit.yml)
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
@@ -133,7 +133,7 @@ This project uses [pre-commit](https://pre-commit.com/) to enforce code quality.
 **Automatic checks on commit:**
 - Trailing whitespace removal
 - End-of-file fixes
-- Black code formatting
+- Ruff linting and formatting
 - mypy type checking
 - Conventional commit message format
 
@@ -151,8 +151,9 @@ git commit --no-verify
 
 **Individual tools (if needed):**
 ```bash
-# Format code with Black
-black app/ tests/
+# Lint and format code with Ruff
+ruff check . --fix
+ruff format .
 
 # Type checking with mypy
 mypy app/

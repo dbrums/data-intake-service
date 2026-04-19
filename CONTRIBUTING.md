@@ -126,7 +126,7 @@ pip-audit
 - Trailing whitespace removal
 - End-of-file fixes
 - YAML/JSON/TOML validation
-- Black code formatting
+- Ruff linting and formatting
 - mypy type checking
 - Conventional commit validation
 - Debug statement detection
@@ -202,9 +202,9 @@ Use fixtures from `tests/conftest.py`
 
 ### Python Style
 
-- **Line length**: 88 characters (Black default)
+- **Line length**: 88 characters (Ruff default)
 - **Type hints**: Use type hints for all function signatures
-- **Imports**: Organized by stdlib, third-party, local (handled by Black)
+- **Imports**: Organized by stdlib, third-party, local (handled by Ruff)
 - **Naming**:
   - Functions/variables: `snake_case`
   - Classes: `PascalCase`
