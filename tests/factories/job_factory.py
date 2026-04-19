@@ -1,20 +1,22 @@
 from typing import Any
 
-from app.db.models.job import Job
+from app.domains.job import DataSource, Job
 from app.schemas.job import JobCreate
 
-DEFAULTS = {
+DEFAULTS: dict[str, Any] = {
     "dataset_type": "test",
     "schema_version": "v1",
     "source_type": "url",
     "source_uri": "https://example.com/data.csv",
-    "status": "queued",
 }
 
 
-def job_factory(**overrides: Any):
+def job_factory(**overrides: Any) -> Job:
     """Factory for creating Job instances with sensible defaults."""
-    return Job(**(DEFAULTS | overrides))
+    params = DEFAULTS | overrides
+    data_source = DataSource(params.pop("source_type"), params.pop("source_uri"))
+    params["source"] = data_source
+    return Job.create_new(**params)
 
 
 def job_create_factory(**overrides: Any):

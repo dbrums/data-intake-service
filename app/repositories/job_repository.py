@@ -3,7 +3,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.db.models.job import Job
+from app.db.models.job import Job as DBJob
+from app.domains.job import Job
 
 
 class AbstractJobRepository(ABC):
@@ -21,10 +22,12 @@ class SqlAlchemyJobRepository(AbstractJobRepository):
         self._session = session
 
     def create(self, job: Job) -> Job:
-        self._session.add(job)
+        db_job = Job.to_db_model(job)
+        self._session.add(db_job)
         self._session.commit()
-        self._session.refresh(job)
-        return job
+        self._session.refresh(db_job)
+        return Job.from_db_model(db_job)
 
     def get_by_id(self, job_id: UUID) -> Job | None:
-        return self._session.get(Job, job_id)
+        db_job = self._session.get(DBJob, job_id)
+        return None if db_job is None else Job.from_db_model(db_job)

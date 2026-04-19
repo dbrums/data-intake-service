@@ -1,3 +1,4 @@
+from app.domains.job import JobStatus
 from app.schemas.job import JobCreate
 from app.services.job_service import JobService
 from tests.factories.job_factory import DEFAULTS
@@ -11,12 +12,12 @@ def test_job_service_create_job(
     job = service.create_job(job_create)
 
     assert job.id is not None
+    assert job.status == JobStatus.QUEUED
     attr_list = [
         "dataset_type",
         "schema_version",
         "source_type",
         "source_uri",
-        "status",
     ]
     for field in attr_list:
         assert getattr(job, field) == DEFAULTS.get(field)

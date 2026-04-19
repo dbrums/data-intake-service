@@ -1,6 +1,6 @@
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from app.db.models.job import Job
+from app.domains.job import Job
 from app.repositories.job_repository import AbstractJobRepository
 
 
@@ -9,7 +9,6 @@ class FakeJobRepository(AbstractJobRepository):
         self._jobs: dict[UUID, Job] = {}
 
     def create(self, job: Job) -> Job:
-        job.id = uuid4()
         self._jobs[job.id] = job
         return job
 
