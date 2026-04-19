@@ -18,7 +18,7 @@ Enforces code quality standards using [pre-commit](https://pre-commit.com/) hook
 - Merge conflict markers
 
 **Python code quality:**
-- Black code formatting (88 char line length)
+- Ruff linting and formatting (88 char line length)
 - mypy type checking (strict mode)
 - Debug statement detection
 
@@ -37,7 +37,8 @@ Shows results for each hook:
 ```
 trailing whitespace.............................Passed
 fix end of files................................Passed
-black...........................................Passed
+ruff............................................Passed
+ruff format.....................................Passed
 mypy............................................Passed
 conventional-pre-commit.........................Passed
 ```
@@ -58,7 +59,7 @@ git commit -m "feat: add something"
 pre-commit run --all-files
 
 # Run specific hook
-pre-commit run black --all-files
+pre-commit run ruff --all-files
 ```
 
 ---
@@ -70,19 +71,28 @@ Runs on every push to `main` and on all pull requests.
 ### Workflow Structure
 
 ```
-┌──────────┬───────────┐
-│   test   │  security │  ← Run in parallel
-└─────┬────┴─────┬─────┘
-      └──────────┘
-           ▼
-      ci-success  ← Summary status check
+┌────────┬──────────┐
+│  lint  │ security │  ← Stage 1: Code quality & security (parallel)
+└────┬───┴────┬─────┘
+     └────────┘
+          ▼
+       test           ← Stage 2: Tests (only runs if Stage 1 passes)
+          ▼
+    ci-success        ← Stage 3: Summary status check
 ```
 
-Note: Code quality checks (formatting, type checking, conventional commits) are handled by the `pre-commit` workflow.
+This fail-fast approach saves CI minutes by running quick checks first.
 
 ### Jobs
 
-#### 1. test
+#### 1. lint
+- Runs ruff check (linting)
+- Runs ruff format --check (formatting validation)
+- Runs mypy (type checking)
+- Python 3.13
+- **Run locally:** `ruff check . && ruff format --check . && mypy app/`
+
+#### 2. security
 - Runs pytest with coverage
 - Python 3.13
 - Requires 70% minimum coverage
@@ -90,13 +100,22 @@ Note: Code quality checks (formatting, type checking, conventional commits) are 
 - Uploads coverage.xml artifact
 - **Run locally:** `pytest tests/ --cov=app --cov-report=term-missing --cov-fail-under=70`
 
-#### 2. security
 - Runs pip-audit for vulnerability scanning
 - Checks all dependencies against OSV database
 - Runs on Python 3.13
 - **Run locally:** `pip-audit`
 
-#### 3. coverage-comment
+#### 3. test
+- Only runs if lint and security pass
+- Runs pytest with coverage
+- Python 3.13
+- Requires 70% minimum coverage
+- Uses in-memory SQLite for tests
+- Uploads coverage.xml artifact
+- Posts coverage report to PR as comment
+- **Run locally:** `pytest tests/ --cov=app --cov-report=term-missing --cov-fail-under=70`
+
+#### 4. coverage-comment
 - Posts coverage report to PR as comment
 - Only runs on pull requests
 - Depends on `test` job
@@ -104,8 +123,8 @@ Note: Code quality checks (formatting, type checking, conventional commits) are 
 - Updates existing comment on subsequent pushes
 - Color coding: green >80%, orange 70-80%, red <70%
 
-#### 4. ci-success
-- Summary job that depends on all check jobs
+#### 5. ci-success
+- Summary job that depends on lint, security, and test
 - Fails if any required job fails
 - Used for branch protection rules
 
@@ -123,17 +142,22 @@ Pip dependencies are cached based on `pyproject.toml` hash:
 - Saves CI minutes and provides faster feedback
 
 **Parallel Execution:**
-- `test` and `security` jobs run in parallel
-- Total workflow time: ~30s (longest job + success)
+- Stage 1: `lint` and `security` run in parallel (~15s)
+- Stage 2: `test` runs only if Stage 1 passes (~20s)
+- Total workflow time: ~35-40s
 
 **Job Dependencies:**
 ```
-test (20s) ──┐
-             ├─→ coverage-comment (5s, PR only) ──┐
-security (10s)                                    ├─→ ci-success (1s)
-                                                  ┘
+Stage 1 (parallel):
+lint (15s) ──┐
+             ├─→ test (20s) ──→ ci-success (1s)
+security (10s) ┘
 ```
-Total: ~26s (test + coverage + success)
+Total: ~36s (max(lint, security) + test + success)
+
+**Fail-fast benefits:**
+- Linting errors fail in ~15s (no need to run tests)
+- Saves CI minutes when code quality issues exist
 
 ### Environment Variables
 
@@ -151,8 +175,11 @@ pre-commit run --all-files
 
 Fix issues automatically where possible:
 ```bash
-# Black will auto-format files
-# Just re-stage and commit
+# Ruff will auto-fix and format files
+ruff check . --fix
+ruff format .
+
+# Re-stage and commit
 git add .
 git commit -m "your message"
 ```
@@ -206,7 +233,8 @@ pip-audit
 
 Individual tools (if needed):
 ```bash
-black app/ tests/      # Format code
+ruff check . --fix     # Lint and auto-fix
+ruff format .          # Format code
 mypy app/              # Type check
 ```
 
@@ -217,8 +245,9 @@ Recommended branch protection settings for `main`:
 - Require status checks to pass before merging
 - Required status checks:
   - `Run pre-commit hooks` (pre-commit.yml)
-  - `Tests with coverage`
+  - `Code quality (ruff + mypy)`
   - `Security audit`
+  - `Tests with coverage`
   - `CI Success`
 - Require branches to be up to date before merging
 
@@ -229,8 +258,8 @@ The project has two GitHub Actions workflows:
 | Workflow | Trigger | Purpose | Duration |
 |----------|---------|---------|----------|
 | `pre-commit.yml` | PRs + push to main | Code quality & commit validation | ~15s |
-| `ci.yml` | PRs + push to main | Tests & security | ~26s |
+| `ci.yml` | PRs + push to main | Lint, security & tests (staged) | ~36s |
 
-**Total CI time:** ~30-40s (workflows run in parallel)
+**Total CI time:** ~36s (workflows run in parallel, main bottleneck is ci.yml)
 
 All checks must pass before code can be merged to `main`.
