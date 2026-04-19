@@ -1,5 +1,14 @@
 # Data Intake Service
 
+[![CI](https://github.com/dbrums/data-intake-service/actions/workflows/ci.yml/badge.svg)](https://github.com/dbrums/data-intake-service/actions/workflows/ci.yml)
+[![pre-commit](https://github.com/dbrums/data-intake-service/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/dbrums/data-intake-service/actions/workflows/pre-commit.yml)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
+> **Note:** This is a personal project for practicing production-ready Python backend development and data engineering API design. The service itself is intentionally over-engineered—any reasonably experienced data engineer would simply use existing cloud tooling (AWS Glue, GCP Dataflow, Azure Data Factory, etc.) rather than building a custom data intake service. The goal here is to demonstrate solid software engineering practices, not to solve a real-world problem.
+
 A FastAPI service that accepts dataset uploads or pull requests, validates them
 against declared schemas and business rules, stores results, and exposes job
 status and validation reports through an API.
