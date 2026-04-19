@@ -1,4 +1,4 @@
-from app.db.models.job import Job
+from app.domains.job import DataSource, Job
 from app.repositories.job_repository import AbstractJobRepository
 from app.schemas.job import JobCreate
 
@@ -8,11 +8,14 @@ class JobService:
         self._repo = repo
 
     def create_job(self, payload: JobCreate) -> Job:
-        job = Job(
+
+        data_source = DataSource(
+            type=payload.source_type,
+            uri=payload.source_uri,
+        )
+        in_job = Job.create_new(
             dataset_type=payload.dataset_type,
             schema_version=payload.schema_version,
-            source_type=payload.source_type,
-            source_uri=payload.source_uri,
-            status="queued",
+            source=data_source,
         )
-        return self._repo.create(job)
+        return self._repo.create(in_job)
