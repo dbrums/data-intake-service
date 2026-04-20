@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.db.models.job import Job
+from app.domains.job import Job
 from app.repositories.job_repository import SqlAlchemyJobRepository
 
 

@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app.db.models.job import Job
+from app.domains.job import Job
 from tests.fakes.fake_job_repository import FakeJobRepository
 
 
