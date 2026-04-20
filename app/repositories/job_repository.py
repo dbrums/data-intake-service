@@ -1,10 +1,14 @@
+import logging
 from abc import ABC, abstractmethod
 from uuid import UUID
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.models.job import Job as DBJob
 from app.domains.job import Job
+
+logger = logging.getLogger(__name__)
 
 
 class AbstractJobRepository(ABC):
@@ -22,12 +26,21 @@ class SqlAlchemyJobRepository(AbstractJobRepository):
         self._session = session
 
     def create(self, job: Job) -> Job:
-        db_job = Job.to_db_model(job)
-        self._session.add(db_job)
-        self._session.commit()
-        self._session.refresh(db_job)
-        return Job.from_db_model(db_job)
+        try:
+            db_job = Job.to_db_model(job)
+            self._session.add(db_job)
+            self._session.commit()
+            self._session.refresh(db_job)
+            return Job.from_db_model(db_job)
+        except SQLAlchemyError:
+            logger.error("database error during job creation", exc_info=True)
+            self._session.rollback()
+            raise
 
     def get_by_id(self, job_id: UUID) -> Job | None:
-        db_job = self._session.get(DBJob, job_id)
-        return None if db_job is None else Job.from_db_model(db_job)
+        try:
+            db_job = self._session.get(DBJob, job_id)
+            return None if db_job is None else Job.from_db_model(db_job)
+        except SQLAlchemyError:
+            logger.error("database error during job retrieval", exc_info=True)
+            raise

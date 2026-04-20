@@ -11,6 +11,8 @@ dependencies = [
     "pydantic>=2.0,<3",
     "pydantic-settings>=2.0,<3",
     "httpx>=0.28,<1",
+    "python-json-logger>=2.0,<3",
+    "pyyaml>=6.0,<7",
 ]
 
 [project.optional-dependencies]
@@ -23,6 +25,7 @@ dev = [
     "pip-audit>=2.7,<3",
     "pre-commit>=4.0,<5",
     "commitizen>=4.0,<5",
+    "types-PyYAML>=6.0,<7",
 ]
 
 [build-system]
@@ -105,5 +108,5 @@ strict_equality = true
 disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
-module = ["alembic.*", "sqlalchemy.*"]
+module = ["alembic.*", "sqlalchemy.*", "yaml"]
 ignore_missing_imports = true
