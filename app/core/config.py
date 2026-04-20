@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     ENV: Environment = Environment.LOCAL
     DEBUG: bool = False
     DATABASE_URL: str = "sqlite:///./data_intake.db"
+    LOG_LEVEL: str = "INFO"
 
     @model_validator(mode="after")
     def validate_production_settings(self) -> Self:
