@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum, auto
 from uuid import UUID, uuid4
 
 from app.db.models.job import Job as DBJob
@@ -24,15 +24,15 @@ class DataSource:
             raise ValueError(f"Invalid source type: {self.type}")
 
 
-class JobStatus(Enum):
+class JobStatus(StrEnum):
     """Explicit state enumeration"""
 
-    QUEUED = "queued"
-    RUNNING = "running"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-    RETRY_SCHEDULED = "retry_scheduled"
+    QUEUED = auto()
+    RUNNING = auto()
+    SUCCEEDED = auto()
+    FAILED = auto()
+    CANCELLED = auto()
+    RETRY_SCHEDULED = auto()
 
 
 @dataclass
@@ -93,7 +93,7 @@ class Job:
 
     def _is_valid_transition(self, new_status: JobStatus) -> bool:
         """FSM transition rules"""
-        VALID_TRANSITIONS = {
+        VALID_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
             JobStatus.QUEUED: {JobStatus.RUNNING, JobStatus.CANCELLED},
             JobStatus.RUNNING: {JobStatus.SUCCEEDED, JobStatus.FAILED},
             JobStatus.FAILED: {JobStatus.RETRY_SCHEDULED, JobStatus.CANCELLED},

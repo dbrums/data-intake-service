@@ -6,9 +6,9 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.deps import get_db
+from app.api.deps import get_job_repository
 from app.db.base import Base
-from app.db.models.job import Job
+from app.domains.job import Job
 from app.main import app
 from app.schemas.job import JobCreate
 from tests.factories.job_factory import job_create_factory, job_factory
@@ -62,14 +62,11 @@ def db_session(db_engine: Engine) -> Generator[Session]:
 
 
 @pytest.fixture
-def client(db_session: Session) -> Generator[TestClient]:
-    def override_get_db() -> Generator[Session]:
-        try:
-            yield db_session
-        finally:
-            pass
+def client(fake_job_repo: FakeJobRepository) -> Generator[TestClient]:
+    def override_get_job_repository() -> FakeJobRepository:
+        return fake_job_repo
 
-    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_job_repository] = override_get_job_repository
 
     with TestClient(app) as test_client:
         yield test_client

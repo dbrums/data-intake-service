@@ -15,3 +15,7 @@ class JobRead(BaseModel):
 
     job_id: UUID = Field(alias="id")
     status: str
+
+
+class JobGetByID(BaseModel):
+    job_id: UUID

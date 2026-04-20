@@ -1,6 +1,12 @@
+from uuid import UUID
+
 from app.domains.job import DataSource, Job
 from app.repositories.job_repository import AbstractJobRepository
 from app.schemas.job import JobCreate
+
+
+class JobNotFoundError(Exception):
+    pass
 
 
 class JobService:
@@ -19,3 +25,9 @@ class JobService:
             source=data_source,
         )
         return self._repo.create(in_job)
+
+    def get_job_by_id(self, job_id: UUID) -> Job:
+        job = self._repo.get_by_id(job_id)
+        if job is None:
+            raise JobNotFoundError(f"No job found with ID {job_id}")
+        return job
