@@ -19,7 +19,7 @@ def job_factory(**overrides: Any) -> Job:
     return Job.create_new(**params)
 
 
-def job_create_factory(**overrides: Any):
+def job_create_factory(**overrides: Any) -> JobCreate:
     """Factory for creating JobCreate instances with sensible defaults."""
     defaults = {k: v for k, v in DEFAULTS.items() if k != "status"}
     return JobCreate(**(defaults | overrides))
