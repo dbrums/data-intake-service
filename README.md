@@ -13,6 +13,22 @@ A FastAPI service that accepts dataset uploads or pull requests, validates them
 against declared schemas and business rules, stores results, and exposes job
 status and validation reports through an API.
 
+## Table of Contents
+
+- [Job Lifecycle](#job-lifecycle)
+- [Project Structure](#project-structure)
+- [Docker Setup (Recommended)](#docker-setup-recommended)
+  - [VS Code Devcontainer](#vs-code-devcontainer-recommended-for-vs-code-users)
+  - [Quick Start](#quick-start-without-devcontainer)
+  - [Common Docker Commands](#common-docker-commands)
+  - [Development Workflow](#development-workflow)
+- [Native Setup (Alternative)](#native-setup-alternative)
+- [Development](#development)
+  - [Running Tests](#running-tests)
+  - [Code Quality Checks](#code-quality-checks)
+  - [Commit Message Convention](#commit-message-convention)
+  - [CI/CD](#cicd)
+
 ## Job Lifecycle
 
 Jobs follow an explicit state machine. Transitions are validated — arbitrary
@@ -87,7 +103,99 @@ workers/ ─┘
 Services, repositories, and database code must never import from `api/` or
 `workers/`.
 
-## Getting Started
+## Docker Setup (Recommended)
+
+The fastest way to get started is using Docker Compose, which runs the FastAPI app and PostgreSQL together.
+
+### Prerequisites
+- Docker and Docker Compose installed
+- (Optional) VS Code for devcontainer support
+
+### VS Code Devcontainer (Recommended for VS Code users)
+
+If you're using VS Code, you can develop inside the container with full IDE integration:
+
+1. Install the "Dev Containers" extension in VS Code
+2. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+3. Open the project in VS Code
+4. Click "Reopen in Container" when prompted (or run "Dev Containers: Reopen in Container" from the command palette)
+5. VS Code will build and start the containers, then connect you to the development environment
+6. Your terminal, debugger, and IntelliSense will all run inside the container
+
+With devcontainer:
+- No need for `docker-compose exec` - your terminal is already inside the container
+- Run commands directly: `pytest`, `alembic upgrade head`, `uvicorn app.main:app --reload`
+- Debug FastAPI directly with VS Code breakpoints
+- Extensions (Ruff, mypy, Python) install automatically
+
+**Git configuration:**
+Git user configuration is set at the repository level (not mounted from host). After cloning, set your git identity:
+
+```bash
+git config user.name "Your Name"
+git config user.email "your.email@example.com"
+```
+
+The devcontainer automatically strips macOS-specific SSH options (`UseKeychain`, `AddKeysToAgent`) from your mounted SSH config to ensure compatibility with Linux.
+
+### Quick Start (without devcontainer)
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Start the services:
+   ```bash
+   docker-compose up
+   ```
+
+3. The API will be available at `http://localhost:8000`
+4. PostgreSQL will be available at `localhost:5432`
+
+### Common Docker Commands
+
+```bash
+# Start services in background
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services (preserves data)
+docker-compose down
+
+# Stop services and remove volumes (fresh start)
+docker-compose down -v
+
+# Rebuild after dependency changes
+docker-compose up --build
+
+# Run tests
+docker-compose exec web pytest
+
+# Create a migration
+docker-compose exec web alembic revision --autogenerate -m "description"
+
+# Access PostgreSQL directly
+docker-compose exec db psql -U postgres -d data_intake
+
+# Run any command in the web container
+docker-compose exec web <command>
+```
+
+### Development Workflow
+
+- Edit code on your host machine
+- Changes are automatically reflected (hot reload enabled)
+- PostgreSQL data persists in a Docker volume across restarts
+
+## Native Setup (Alternative)
+
+If you prefer to run without Docker, you can use a Python virtual environment. You'll need to install and configure PostgreSQL manually.
 
 ```bash
 # Create and activate a virtual environment (Python 3.13+ required)
