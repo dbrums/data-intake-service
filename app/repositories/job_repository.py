@@ -20,6 +20,10 @@ class AbstractJobRepository(ABC):
     def get_by_id(self, job_id: UUID) -> Job | None:
         raise NotImplementedError
 
+    @abstractmethod
+    def list_all(self) -> list[Job]:
+        raise NotImplementedError
+
 
 class SqlAlchemyJobRepository(AbstractJobRepository):
     def __init__(self, session: Session):
@@ -43,4 +47,12 @@ class SqlAlchemyJobRepository(AbstractJobRepository):
             return None if db_job is None else Job.from_db_model(db_job)
         except SQLAlchemyError:
             logger.error("database error during job retrieval", exc_info=True)
+            raise
+
+    def list_all(self) -> list[Job]:
+        try:
+            db_jobs = self._session.query(DBJob).all()
+            return [Job.from_db_model(db_job) for db_job in db_jobs]
+        except SQLAlchemyError:
+            logger.error("database error during job listing", exc_info=True)
             raise

@@ -28,6 +28,7 @@ status and validation reports through an API.
   - [Code Quality Checks](#code-quality-checks)
   - [Commit Message Convention](#commit-message-convention)
   - [CI/CD](#cicd)
+- [Additional Documentation](#additional-documentation)
 
 ## Job Lifecycle
 
@@ -148,6 +149,15 @@ The devcontainer automatically strips macOS-specific SSH options (`UseKeychain`,
    cp .env.example .env
    ```
 
+   By default, this configures the application to use PostgreSQL. You can optionally change `DATABASE_URL` in `.env` to use SQLite for local development:
+   ```bash
+   # PostgreSQL (default, recommended)
+   DATABASE_URL=postgresql://postgres:postgres@db:5432/data_intake
+
+   # Or SQLite (no Docker required)
+   DATABASE_URL=sqlite:///./data_intake.db
+   ```
+
 2. Start the services:
    ```bash
    docker-compose up
@@ -195,7 +205,7 @@ docker-compose exec web <command>
 
 ## Native Setup (Alternative)
 
-If you prefer to run without Docker, you can use a Python virtual environment. You'll need to install and configure PostgreSQL manually.
+If you prefer to run without Docker, you can use a Python virtual environment.
 
 ```bash
 # Create and activate a virtual environment (Python 3.13+ required)
@@ -204,6 +214,15 @@ source .venv/bin/activate
 
 # Install dependencies
 pip install -e ".[dev]"
+
+# Copy and configure environment file
+cp .env.example .env
+
+# Configure DATABASE_URL in .env:
+#   - For PostgreSQL: postgresql://postgres:postgres@localhost:5432/data_intake
+#     (requires PostgreSQL installed and running locally)
+#   - For SQLite: sqlite:///./data_intake.db
+#     (no external database needed)
 
 # Install pre-commit hooks (enforces code quality and conventional commits)
 pre-commit install
@@ -220,8 +239,12 @@ uvicorn app.main:app --reload
 
 ### Running Tests
 
+Tests can run against **SQLite** (fast, default) or **PostgreSQL** (production parity).
+
+> **Note:** Test database is configured via `TEST_DATABASE_URL` environment variable, separate from the application runtime database (`DATABASE_URL` in `.env`).
+
 ```bash
-# Run all tests
+# Run all tests (SQLite in-memory by default - fast)
 pytest tests/
 
 # Run with coverage
@@ -232,7 +255,24 @@ pytest tests/unit/services/test_job_service.py -v
 
 # Run tests matching a pattern
 pytest tests/ -k "test_job" -v
+
+# Run against PostgreSQL (requires docker-compose up -d db)
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/data_intake pytest tests/
 ```
+
+#### Test Database Configuration
+
+| Database | Speed | Use Case | Configuration |
+|----------|-------|----------|---------------|
+| **SQLite** (default) | ⚡ ~0.15s | Local TDD, fast feedback | None needed |
+| **PostgreSQL** | 🐢 ~0.5s | Pre-deploy validation, CI reproduction | `TEST_DATABASE_URL=postgresql://...` |
+
+**When to use PostgreSQL:**
+- Before pushing to catch dialect-specific bugs
+- To reproduce CI failures locally
+- When testing Postgres-specific features (JSONB, arrays, etc.)
+
+**CI always uses PostgreSQL** to ensure production parity. See [.github/workflows/ci.yml](.github/workflows/ci.yml) for details.
 
 ### Code Quality Checks
 
@@ -323,7 +363,7 @@ This project uses GitHub Actions for continuous integration. On every pull reque
 3. **Coverage**: Minimum 70% coverage required (enforced)
 4. **Security**: pip-audit scans for known vulnerabilities in dependencies
 
-The CI workflow runs on Python 3.13.
+The CI workflow runs on Python 3.13 and **always uses PostgreSQL** to ensure production parity. Local development defaults to SQLite for speed.
 
 #### Coverage Reports
 
@@ -337,3 +377,8 @@ Coverage reports are automatically posted as comments on pull requests, showing:
 All checks must pass before code can be merged. Failed checks will block merging.
 
 See [.github/workflows/README.md](.github/workflows/README.md) for more details about the CI workflow.
+
+## Additional Documentation
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines and development workflow
+- **[.github/workflows/README.md](.github/workflows/README.md)** - CI/CD pipeline documentation

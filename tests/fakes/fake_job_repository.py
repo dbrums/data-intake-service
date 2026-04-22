@@ -14,3 +14,6 @@ class FakeJobRepository(AbstractJobRepository):
 
     def get_by_id(self, job_id: UUID) -> Job | None:
         return self._jobs.get(job_id)
+
+    def list_all(self) -> list[Job]:
+        return list(self._jobs.values())

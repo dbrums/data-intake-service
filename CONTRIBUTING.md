@@ -168,8 +168,12 @@ All PRs must pass these checks before merging:
 
 ### Running Tests
 
+Tests can run against **SQLite** (fast, default) or **PostgreSQL** (production parity).
+
+> **Important:** Test database is configured via `TEST_DATABASE_URL`, separate from the application runtime database (`.env` → `DATABASE_URL`). You can run the app with PostgreSQL while testing with SQLite, or vice versa.
+
 ```bash
-# All tests
+# All tests (SQLite in-memory by default - fast for TDD)
 pytest tests/
 
 # Specific test file
@@ -181,7 +185,27 @@ pytest tests/ -k "test_job" -v
 # With coverage report
 pytest tests/ --cov=app --cov-report=html
 open htmlcov/index.html  # View coverage report
+
+# Test against PostgreSQL (what CI uses)
+docker-compose up -d db
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/data_intake pytest tests/
 ```
+
+### Database Configuration
+
+Tests default to **SQLite in-memory** (`sqlite:///:memory:`) for speed. Set `TEST_DATABASE_URL` to use PostgreSQL.
+
+| Database | Speed | Configuration |
+|----------|-------|---------------|
+| SQLite (default) | ⚡ ~0.15s | None needed - automatic |
+| PostgreSQL | 🐢 ~0.5s | `TEST_DATABASE_URL=postgresql://user:pass@host:port/db` |
+
+**When to use PostgreSQL:**
+- **Before pushing** - Catch SQL dialect differences
+- **Debugging CI failures** - Reproduce exact CI environment locally
+- **Testing Postgres-specific features** - JSONB, arrays, full-text search, etc.
+
+**CI Strategy:** GitHub Actions always runs tests against PostgreSQL to ensure production parity. This catches dialect-specific bugs before merge while keeping local development fast.
 
 ### Writing Tests
 

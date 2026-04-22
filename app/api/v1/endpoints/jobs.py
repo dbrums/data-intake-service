@@ -38,3 +38,15 @@ def get_job_by_id(
     except Exception:
         logger.error("get job request failed", exc_info=True)
         raise
+
+
+@router.get("", response_model=list[JobRead], status_code=status.HTTP_200_OK)
+def get_jobs(service: JobService = Depends(get_job_service)) -> list[JobRead]:
+    logger.info("received get jobs request")
+    try:
+        jobs = service.get_jobs()
+        logger.info("get jobs request completed successfully")
+        return [JobRead.model_validate(job) for job in jobs]
+    except Exception:
+        logger.error("get jobs request failed", exc_info=True)
+        raise

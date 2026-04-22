@@ -18,6 +18,12 @@ def test_post_jobs_returns_201_and_body(client: TestClient, job_create: JobCreat
     assert body["status"] == JobStatus.QUEUED.value
 
 
+def test_post_jobs_invalid_payload_returns_422(client: TestClient):
+    response = client.post("/api/v1/jobs", json={"name": 123})
+
+    assert response.status_code == 422
+
+
 def test_get_job_returns_200(client: TestClient, job_create: JobCreate):
     create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
     job_id = create_response.json()["id"]
@@ -37,7 +43,39 @@ def test_get_missing_job_returns_404(client: TestClient):
         assert "not found" in response.json()["detail"]
 
 
-def test_post_jobs_invalid_payload_returns_422(client: TestClient):
-    response = client.post("/api/v1/jobs", json={"name": 123})
+def test_get_jobs_returns_empty_list_when_no_jobs(client: TestClient):
+    response = client.get("/api/v1/jobs")
 
-    assert response.status_code == 422
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_get_jobs_returns_200(client: TestClient, job_create: JobCreate):
+    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+    job_id = create_response.json()["id"]
+
+    response = client.get("/api/v1/jobs")
+
+    assert response.status_code == 200
+    jobs = response.json()
+    assert isinstance(jobs, list)
+    assert len(jobs) == 1
+    assert jobs[0]["id"] == job_id
+    assert jobs[0]["status"] == JobStatus.QUEUED.value
+
+
+def test_get_jobs_returns_all_jobs(client: TestClient, job_create: JobCreate):
+    job_ids = []
+    for _ in range(3):
+        response = client.post("/api/v1/jobs", json=job_create.model_dump())
+        job_ids.append(response.json()["id"])
+
+    response = client.get("/api/v1/jobs")
+
+    assert response.status_code == 200
+    jobs = response.json()
+    assert len(jobs) == 3
+    returned_ids = [job["id"] for job in jobs]
+    assert set(returned_ids) == set(job_ids)
+    for job in jobs:
+        assert job["status"] == JobStatus.QUEUED.value
