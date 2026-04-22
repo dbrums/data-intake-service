@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from app.core.logging.setup import (
-    _find_project_root,  # type: ignore[reportPrivateUsage]
+    _get_logging_config_path,  # type: ignore[reportPrivateUsage]
     setup_logging,
 )
 
@@ -14,31 +14,33 @@ if TYPE_CHECKING:
     from pytest import MonkeyPatch
 
 
-def test_find_project_root_succeeds() -> None:
-    """Verify _find_project_root locates logging_config.yaml."""
-    config_path = _find_project_root()
+def test_get_logging_config_path_succeeds() -> None:
+    """Verify _get_logging_config_path locates logging_config.yaml in app/core."""
+    config_path = _get_logging_config_path()
     assert config_path.exists()
     assert config_path.name == "logging_config.yaml"
+    assert config_path.parent.name == "core"
 
 
-def test_find_project_root_fails_when_missing(tmp_path: Path) -> None:
-    """Verify _find_project_root raises when config not found."""
-    # Create a temporary module file in a directory without logging_config.yaml
-    fake_module = tmp_path / "fake_module.py"
-    fake_module.write_text("# fake module")
+def test_get_logging_config_path_fails_when_missing(tmp_path: Path) -> None:
+    """Verify _get_logging_config_path raises when config not found."""
+    # Create a fake setup.py in a temp directory structure
+    fake_logging_dir = tmp_path / "app" / "core" / "logging"
+    fake_logging_dir.mkdir(parents=True)
+    fake_setup = fake_logging_dir / "setup.py"
+    fake_setup.write_text("# fake setup")
 
     # Monkey patch __file__ to point to our fake module
     with patch("app.core.logging.setup.Path") as mock_path:
-        mock_path.return_value.resolve.return_value.parents = [
-            tmp_path,
-            tmp_path.parent,
-        ]
-        mock_path.return_value.resolve.return_value.parent = tmp_path
+        # Mock Path(__file__).resolve().parent.parent to point to tmp app/core
+        mock_resolved = mock_path.return_value.resolve.return_value
+        mock_resolved.parent.parent = tmp_path / "app" / "core"
 
         with pytest.raises(
-            FileNotFoundError, match="Could not find logging_config.yaml"
+            FileNotFoundError,
+            match="Logging config not found.*app/core/logging_config.yaml",
         ):
-            _find_project_root()
+            _get_logging_config_path()
 
 
 def test_setup_logging_succeeds() -> None:
