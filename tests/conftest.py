@@ -1,4 +1,6 @@
+import os
 from collections.abc import Generator
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,7 +16,31 @@ from app.schemas.job import JobCreate
 from tests.factories.job_factory import job_create_factory, job_factory
 from tests.fakes.fake_job_repository import FakeJobRepository
 
-TEST_DATABASE_URL = "sqlite:///:memory:"
+
+# Test database configuration
+def _get_test_db_config() -> tuple[str, dict[str, Any]]:
+    """
+    Get test database URL and engine kwargs.
+
+    Defaults to SQLite in-memory for speed. Set TEST_DATABASE_URL to use PostgreSQL:
+    TEST_DATABASE_URL=postgresql://user:pass@host:port/db pytest
+    """
+    url = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
+
+    # Configure engine based on database type
+    if url.startswith("sqlite"):
+        kwargs: dict[str, Any] = {
+            "connect_args": {"check_same_thread": False},
+            "poolclass": StaticPool,
+        }
+    else:
+        # PostgreSQL or other databases
+        kwargs = {}
+
+    return url, kwargs
+
+
+TEST_DATABASE_URL, _ENGINE_KWARGS = _get_test_db_config()
 
 
 @pytest.fixture
@@ -34,11 +60,7 @@ def job_create() -> JobCreate:
 
 @pytest.fixture(scope="session")
 def db_engine() -> Generator[Engine]:
-    engine = create_engine(
-        TEST_DATABASE_URL,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    engine = create_engine(TEST_DATABASE_URL, **_ENGINE_KWARGS)
     Base.metadata.create_all(bind=engine)
     try:
         yield engine
@@ -58,6 +80,10 @@ def db_session(db_engine: Engine) -> Generator[Session]:
     try:
         yield session
     finally:
+        session.rollback()
+        for table in reversed(Base.metadata.sorted_tables):
+            session.execute(table.delete())
+        session.commit()
         session.close()
 
 

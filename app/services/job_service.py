@@ -48,3 +48,9 @@ class JobService:
             raise JobNotFoundError(f"No job found with ID {job_id}")
         logger.info("job retrieved successfully")
         return job
+
+    def get_jobs(self) -> list[Job]:
+        logger.info("fetching all jobs")
+        jobs = self._repo.list_all()
+        logger.info("jobs retrieved successfully")
+        return jobs

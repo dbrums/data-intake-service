@@ -27,3 +27,48 @@ def test_fake_job_repo_get_by_id(fake_job_repo: FakeJobRepository, job: Job):
 def test_fake_job_repo_get_by_id_not_found(fake_job_repo: FakeJobRepository):
     non_existent_id = uuid4()
     assert fake_job_repo.get_by_id(non_existent_id) is None
+
+
+def test_fake_job_repo_list_all_returns_empty_list(fake_job_repo: FakeJobRepository):
+    jobs = fake_job_repo.list_all()
+
+    assert jobs == []
+
+
+def test_fake_job_repo_list_all_returns_single_job(
+    fake_job_repo: FakeJobRepository, job: Job
+):
+    created_job = fake_job_repo.create(job)
+
+    jobs = fake_job_repo.list_all()
+
+    assert len(jobs) == 1
+    assert jobs[0].id == created_job.id
+
+
+def test_fake_job_repo_list_all_returns_multiple_jobs(
+    fake_job_repo: FakeJobRepository, job: Job
+):
+    from app.domains.job import DataSource
+
+    job1 = fake_job_repo.create(job)
+    job2 = Job.create_new(
+        dataset_type="another_type",
+        schema_version="v2",
+        source=DataSource(type=job.source_type, uri=job.source_uri),
+    )
+    job2 = fake_job_repo.create(job2)
+    job3 = Job.create_new(
+        dataset_type="third_type",
+        schema_version="v3",
+        source=DataSource(type=job.source_type, uri=job.source_uri),
+    )
+    job3 = fake_job_repo.create(job3)
+
+    jobs = fake_job_repo.list_all()
+
+    assert len(jobs) == 3
+    job_ids = [j.id for j in jobs]
+    assert job1.id in job_ids
+    assert job2.id in job_ids
+    assert job3.id in job_ids
