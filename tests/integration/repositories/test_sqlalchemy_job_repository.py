@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.domains.job import DataSource, Job
+from app.domains.job import DataSource, Job, JobStatus
 from app.repositories.job_repository import SqlAlchemyJobRepository
 
 
@@ -74,3 +74,13 @@ def test_job_repo_list_all_multiple_jobs(db_session: Session):
     assert job1.id in job_ids
     assert job2.id in job_ids
     assert job3.id in job_ids
+
+
+def test_fake_job_repository_update(db_session: Session, job: Job):
+    repo = SqlAlchemyJobRepository(db_session)
+    created_job = repo.create(job)
+    created_job.status = JobStatus.RUNNING
+    updated_job = repo.update(job)
+
+    assert created_job.id == updated_job.id
+    assert created_job.status == JobStatus.RUNNING

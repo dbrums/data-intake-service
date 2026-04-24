@@ -1,11 +1,9 @@
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.domains.job import JobStatus
 from app.schemas.job import JobCreate
-from app.services.job_service import JobNotFoundError
 
 
 def test_post_jobs_returns_201_and_body(client: TestClient, job_create: JobCreate):
@@ -36,11 +34,10 @@ def test_get_job_returns_200(client: TestClient, job_create: JobCreate):
 
 
 def test_get_missing_job_returns_404(client: TestClient):
-    with pytest.raises(JobNotFoundError):
-        response = client.get(f"/api/v1/jobs/{uuid4()}")
+    response = client.get(f"/api/v1/jobs/{uuid4()}")
 
-        assert response.status_code == 404
-        assert "not found" in response.json()["detail"]
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]
 
 
 def test_get_jobs_returns_empty_list_when_no_jobs(client: TestClient):
@@ -79,3 +76,31 @@ def test_get_jobs_returns_all_jobs(client: TestClient, job_create: JobCreate):
     assert set(returned_ids) == set(job_ids)
     for job in jobs:
         assert job["status"] == JobStatus.QUEUED.value
+
+
+def test_patch_job_start_returns_200(client: TestClient, job_create: JobCreate):
+    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+    job_id = create_response.json()["id"]
+
+    response = client.patch(f"/api/v1/jobs/{job_id}/start")
+    assert response.status_code == 200
+    assert response.json()["status"] == JobStatus.RUNNING.value
+    assert response.json()["started_at"] is not None
+
+
+def test_patch_job_start_nonexistent_job_returns_404(client: TestClient):
+    response = client.patch(f"/api/v1/jobs/{uuid4()}/start")
+    assert response.status_code == 404
+
+
+def test_patch_job_start_on_running_job_returns_409(
+    client: TestClient, job_create: JobCreate
+):
+    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+    job_id = create_response.json()["id"]
+
+    client.patch(f"/api/v1/jobs/{job_id}/start")
+
+    # Try to start again (invalid transition: RUNNING → RUNNING)
+    response = client.patch(f"/api/v1/jobs/{job_id}/start")
+    assert response.status_code == 409

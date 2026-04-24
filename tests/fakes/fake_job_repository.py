@@ -17,3 +17,7 @@ class FakeJobRepository(AbstractJobRepository):
 
     def list_all(self) -> list[Job]:
         return list(self._jobs.values())
+
+    def update(self, job: Job) -> Job:
+        self._jobs[job.id] = job
+        return job

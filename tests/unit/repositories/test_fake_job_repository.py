@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app.domains.job import Job
+from app.domains.job import Job, JobStatus
 from tests.fakes.fake_job_repository import FakeJobRepository
 
 
@@ -72,3 +72,12 @@ def test_fake_job_repo_list_all_returns_multiple_jobs(
     assert job1.id in job_ids
     assert job2.id in job_ids
     assert job3.id in job_ids
+
+
+def test_fake_job_repository_update(fake_job_repo: FakeJobRepository, job: Job):
+    created_job = fake_job_repo.create(job)
+    created_job.status = JobStatus.RUNNING
+    updated_job = fake_job_repo.update(job)
+
+    assert created_job.id == updated_job.id
+    assert created_job.status == JobStatus.RUNNING

@@ -1,6 +1,10 @@
+from uuid import uuid4
+
+import pytest
+
 from app.domains.job import JobStatus
 from app.schemas.job import JobCreate
-from app.services.job_service import JobService
+from app.services.job_service import JobNotFoundError, JobService
 from tests.factories.job_factory import DEFAULTS
 from tests.fakes.fake_job_repository import FakeJobRepository
 
@@ -58,3 +62,19 @@ def test_job_service_get_jobs_returns_multiple_jobs(
     assert created_job1.id in job_ids
     assert created_job2.id in job_ids
     assert created_job3.id in job_ids
+
+
+def test_job_service_start_job(fake_job_repo: FakeJobRepository, job_create: JobCreate):
+    service = JobService(fake_job_repo)
+    job = service.create_job(job_create)
+
+    started_job = service.start_job(job.id)
+
+    assert job.id == started_job.id
+    assert started_job.status == JobStatus.RUNNING
+
+
+def test_job_service_start_job_nonexistent_job(fake_job_repo: FakeJobRepository):
+    service = JobService(fake_job_repo)
+    with pytest.raises(JobNotFoundError):
+        service.start_job(uuid4())

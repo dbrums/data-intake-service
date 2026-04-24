@@ -1,8 +1,9 @@
+import datetime
 import logging
 from uuid import UUID
 
 from app.core.logging import set_job_id
-from app.domains.job import DataSource, Job
+from app.domains.job import DataSource, Job, JobStatus
 from app.repositories.job_repository import AbstractJobRepository
 from app.schemas.job import JobCreate
 
@@ -54,3 +55,13 @@ class JobService:
         jobs = self._repo.list_all()
         logger.info("jobs retrieved successfully")
         return jobs
+
+    def start_job(self, job_id: UUID) -> Job:
+        set_job_id(job_id)
+        logger.info("starting job")
+        job = self.get_job_by_id(job_id)
+        job.transition_to(JobStatus.RUNNING)
+        job.started_at = datetime.datetime.now(datetime.UTC)
+        updated_job = self._repo.update(job)
+        logger.info("job started successfully")
+        return updated_job

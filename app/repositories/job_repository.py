@@ -24,6 +24,10 @@ class AbstractJobRepository(ABC):
     def list_all(self) -> list[Job]:
         raise NotImplementedError
 
+    @abstractmethod
+    def update(self, job: Job) -> Job:
+        raise NotImplementedError
+
 
 class SqlAlchemyJobRepository(AbstractJobRepository):
     def __init__(self, session: Session):
@@ -55,4 +59,20 @@ class SqlAlchemyJobRepository(AbstractJobRepository):
             return [Job.from_db_model(db_job) for db_job in db_jobs]
         except SQLAlchemyError:
             logger.error("database error during job listing", exc_info=True)
+            raise
+
+    def update(self, job: Job) -> Job:
+        try:
+            db_job = self._session.get(DBJob, job.id)
+            if db_job is None:
+                raise ValueError(f"Job with id {job.id} not found")
+
+            db_job.status = job.status.value  # Convert enum to string
+            db_job.started_at = job.started_at
+            self._session.commit()
+            self._session.refresh(db_job)
+            return Job.from_db_model(db_job)
+        except SQLAlchemyError:
+            logger.error("database error during job update", exc_info=True)
+            self._session.rollback()
             raise

@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -15,6 +16,7 @@ class JobRead(BaseModel):
 
     job_id: UUID = Field(alias="id")
     status: str
+    started_at: datetime | None
 
 
 class JobGetByID(BaseModel):
