@@ -16,9 +16,15 @@ class JobRead(BaseModel):
 
     job_id: UUID = Field(alias="id")
     status: str
+    created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
 
 
 class JobGetByID(BaseModel):
     job_id: UUID
+
+
+class JobFail(BaseModel):
+    error_code: str
+    error_message: str

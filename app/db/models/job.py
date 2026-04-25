@@ -31,3 +31,5 @@ class Job(Base):
     finished_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    error_code: Mapped[str] = mapped_column(String(50), nullable=True)
+    error_message: Mapped[str] = mapped_column(String(500), nullable=True)

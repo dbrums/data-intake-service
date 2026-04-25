@@ -5,7 +5,7 @@ from uuid import UUID
 from app.core.logging import set_job_id
 from app.domains.job import DataSource, Job, JobStatus
 from app.repositories.job_repository import AbstractJobRepository
-from app.schemas.job import JobCreate
+from app.schemas.job import JobCreate, JobFail
 
 logger = logging.getLogger(__name__)
 
@@ -74,4 +74,15 @@ class JobService:
         job.finished_at = datetime.datetime.now(datetime.UTC)
         updated_job = self._repo.update(job)
         logger.info("job completed successfully")
+        return updated_job
+
+    def fail_job(self, payload: JobFail, job_id: UUID) -> Job:
+        set_job_id(job_id)
+        logger.info("failing job")
+        job = self.get_job_by_id(job_id)
+        job.transition_to(JobStatus.FAILED)
+        job.error_code = payload.error_code
+        job.error_message = payload.error_message
+        updated_job = self._repo.update(job)
+        logger.info("job failed successfully")
         return updated_job

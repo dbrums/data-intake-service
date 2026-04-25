@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 
 from app.domains.job import JobStatus
-from app.schemas.job import JobCreate
+from app.schemas.job import JobCreate, JobFail
 from app.services.job_service import JobNotFoundError, JobService
 from tests.factories.job_factory import DEFAULTS
 from tests.fakes.fake_job_repository import FakeJobRepository
@@ -97,3 +97,24 @@ def test_job_service_complete_job_nonexistent_job(fake_job_repo: FakeJobReposito
     service = JobService(fake_job_repo)
     with pytest.raises(JobNotFoundError):
         service.complete_job(uuid4())
+
+
+def test_job_service_fail_job(
+    fake_job_repo: FakeJobRepository, job_create: JobCreate, job_fail: JobFail
+):
+    service = JobService(fake_job_repo)
+    job = service.create_job(job_create)
+
+    started_job = service.start_job(job.id)
+    failed_job = service.fail_job(job_fail, started_job.id)
+
+    assert started_job.id == failed_job.id
+    assert failed_job.status == JobStatus.FAILED
+
+
+def test_job_service_fail_job_nonexistent_job(
+    fake_job_repo: FakeJobRepository, job_fail: JobFail
+):
+    service = JobService(fake_job_repo)
+    with pytest.raises(JobNotFoundError):
+        service.fail_job(job_fail, uuid4())

@@ -3,7 +3,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from app.domains.job import JobStatus
-from app.schemas.job import JobCreate
+from app.schemas.job import JobCreate, JobFail
 
 
 def test_post_jobs_returns_201_and_body(client: TestClient, job_create: JobCreate):
@@ -121,4 +121,24 @@ def test_patch_job_complete_returns_200(client: TestClient, job_create: JobCreat
 
 def test_patch_job_complete_nonexistent_job_returns_404(client: TestClient):
     response = client.patch(f"/api/v1/jobs/{uuid4()}/complete")
+    assert response.status_code == 404
+
+
+def test_patch_job_fail_returns_200(
+    client: TestClient, job_create: JobCreate, job_fail: JobFail
+):
+    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+    job_id = create_response.json()["id"]
+    start_response = client.patch(f"/api/v1/jobs/{job_id}/start")
+    job_id = start_response.json()["id"]
+
+    response = client.patch(f"/api/v1/jobs/{job_id}/fail", json=job_fail.model_dump())
+    assert response.status_code == 200
+    assert response.json()["status"] == JobStatus.FAILED.value
+
+
+def test_patch_job_fail_nonexistent_job_returns_404(
+    client: TestClient, job_fail: JobFail
+):
+    response = client.patch(f"/api/v1/jobs/{uuid4()}/fail", json=job_fail.model_dump())
     assert response.status_code == 404

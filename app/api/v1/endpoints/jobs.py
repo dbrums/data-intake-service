@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_job_service
 from app.domains.job import InvalidJobTransitionError
-from app.schemas.job import JobCreate, JobRead
+from app.schemas.job import JobCreate, JobFail, JobRead
 from app.services.job_service import JobNotFoundError, JobService
 
 logger = logging.getLogger(__name__)
@@ -90,4 +90,27 @@ def patch_job_complete(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception:
         logger.error("complete jobs request failed", exc_info=True)
+        raise
+
+
+# PATCH /api/v1/jobs/{job_id}/fail
+# {
+#   "error_code": "network_timeout",
+#   "error_message": "Failed to download from source URL after 3 attempts"
+# }
+@router.patch("/{job_id}/fail", response_model=JobRead, status_code=status.HTTP_200_OK)
+def patch_job_fail(
+    payload: JobFail, job_id: UUID, service: JobService = Depends(get_job_service)
+) -> JobRead:
+    logger.info("received job fail request")
+    try:
+        job = service.fail_job(payload, job_id)
+        logger.info("fail job request completed successfully")
+        return JobRead.model_validate(job)
+    except JobNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Job not found") from exc
+    except InvalidJobTransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception:
+        logger.error("fail jobs request failed", exc_info=True)
         raise

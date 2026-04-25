@@ -12,7 +12,7 @@ from app.api.deps import get_job_repository
 from app.db.base import Base
 from app.domains.job import Job
 from app.main import app
-from app.schemas.job import JobCreate
+from app.schemas.job import JobCreate, JobFail
 from tests.factories.job_factory import job_create_factory, job_factory
 from tests.fakes.fake_job_repository import FakeJobRepository
 
@@ -56,6 +56,11 @@ def job() -> Job:
 @pytest.fixture
 def job_create() -> JobCreate:
     return job_create_factory()
+
+
+@pytest.fixture
+def job_fail() -> JobFail:
+    return JobFail(error_code="error_code", error_message="error_message")
 
 
 @pytest.fixture(scope="session")

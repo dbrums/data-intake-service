@@ -46,6 +46,8 @@ class Job:
     created_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    error_code: str | None = None
+    error_message: str | None = None
 
     @classmethod
     def create_new(
@@ -73,6 +75,8 @@ class Job:
             created_at=db_job.created_at,
             started_at=db_job.started_at,
             finished_at=db_job.finished_at,
+            error_code=db_job.error_code,
+            error_message=db_job.error_message,
         )
 
     def to_db_model(self) -> DBJob:
@@ -86,6 +90,8 @@ class Job:
             created_at=self.created_at,
             started_at=self.started_at,
             finished_at=self.finished_at,
+            error_code=self.error_code,
+            error_message=self.error_message,
         )
 
     def transition_to(self, new_status: JobStatus) -> None:
