@@ -69,6 +69,10 @@ class SqlAlchemyJobRepository(AbstractJobRepository):
 
             db_job.status = job.status.value  # Convert enum to string
             db_job.started_at = job.started_at
+            db_job.finished_at = job.finished_at
+            db_job.error_code = job.error_code
+            db_job.error_message = job.error_message
+            db_job.retry_count = job.retry_count
             self._session.commit()
             self._session.refresh(db_job)
             return Job.from_db_model(db_job)

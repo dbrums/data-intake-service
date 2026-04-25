@@ -48,6 +48,7 @@ class Job:
     finished_at: datetime | None = None
     error_code: str | None = None
     error_message: str | None = None
+    retry_count: int = 0
 
     @classmethod
     def create_new(
@@ -77,6 +78,7 @@ class Job:
             finished_at=db_job.finished_at,
             error_code=db_job.error_code,
             error_message=db_job.error_message,
+            retry_count=db_job.retry_count,
         )
 
     def to_db_model(self) -> DBJob:
@@ -92,6 +94,7 @@ class Job:
             finished_at=self.finished_at,
             error_code=self.error_code,
             error_message=self.error_message,
+            retry_count=self.retry_count,
         )
 
     def transition_to(self, new_status: JobStatus) -> None:
@@ -100,6 +103,8 @@ class Job:
             raise InvalidJobTransitionError(
                 f"Cannot transition from {self.status} to {new_status}"
             )
+        if new_status == JobStatus.RETRY_SCHEDULED:
+            self.retry_count += 1
 
         self.status = new_status
 

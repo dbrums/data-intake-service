@@ -86,6 +86,7 @@ def test_patch_job_start_returns_200(client: TestClient, job_create: JobCreate):
     assert response.status_code == 200
     assert response.json()["status"] == JobStatus.RUNNING.value
     assert response.json()["started_at"] is not None
+    assert response.json()["created_at"] <= response.json()["created_at"]
 
 
 def test_patch_job_start_nonexistent_job_returns_404(client: TestClient):
@@ -116,6 +117,7 @@ def test_patch_job_complete_returns_200(client: TestClient, job_create: JobCreat
     assert response.status_code == 200
     assert response.json()["status"] == JobStatus.SUCCEEDED.value
     assert response.json()["finished_at"] is not None
+    assert response.json()["created_at"] <= response.json()["started_at"]
     assert response.json()["started_at"] <= response.json()["finished_at"]
 
 
@@ -135,10 +137,38 @@ def test_patch_job_fail_returns_200(
     response = client.patch(f"/api/v1/jobs/{job_id}/fail", json=job_fail.model_dump())
     assert response.status_code == 200
     assert response.json()["status"] == JobStatus.FAILED.value
+    assert response.json()["error_code"] == job_fail.error_code
+    assert response.json()["error_message"] == job_fail.error_message
+    assert response.json()["finished_at"] is not None
 
 
 def test_patch_job_fail_nonexistent_job_returns_404(
     client: TestClient, job_fail: JobFail
 ):
     response = client.patch(f"/api/v1/jobs/{uuid4()}/fail", json=job_fail.model_dump())
+    assert response.status_code == 404
+
+
+def test_post_job_retry_returns_200(
+    client: TestClient, job_create: JobCreate, job_fail: JobFail
+):
+    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+    job_id = create_response.json()["id"]
+    start_response = client.patch(f"/api/v1/jobs/{job_id}/start")
+    job_id = start_response.json()["id"]
+
+    fail_response = client.patch(
+        f"/api/v1/jobs/{job_id}/fail", json=job_fail.model_dump()
+    )
+    job_id = fail_response.json()["id"]
+
+    retry_response = client.post(f"/api/v1/jobs/{job_id}/retry")
+    assert retry_response.status_code == 200
+    assert retry_response.json()["status"] == JobStatus.QUEUED.value
+    assert retry_response.json()["started_at"] is None
+    assert retry_response.json()["finished_at"] is None
+
+
+def test_post_job_retry_nonexistent_job_returns_404(client: TestClient):
+    response = client.post(f"/api/v1/jobs/{uuid4()}/retry")
     assert response.status_code == 404

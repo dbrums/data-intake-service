@@ -93,14 +93,9 @@ def patch_job_complete(
         raise
 
 
-# PATCH /api/v1/jobs/{job_id}/fail
-# {
-#   "error_code": "network_timeout",
-#   "error_message": "Failed to download from source URL after 3 attempts"
-# }
 @router.patch("/{job_id}/fail", response_model=JobRead, status_code=status.HTTP_200_OK)
 def patch_job_fail(
-    payload: JobFail, job_id: UUID, service: JobService = Depends(get_job_service)
+    job_id: UUID, payload: JobFail, service: JobService = Depends(get_job_service)
 ) -> JobRead:
     logger.info("received job fail request")
     try:
@@ -113,4 +108,22 @@ def patch_job_fail(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception:
         logger.error("fail jobs request failed", exc_info=True)
+        raise
+
+
+@router.post("/{job_id}/retry", response_model=JobRead, status_code=status.HTTP_200_OK)
+def post_job_retry(
+    job_id: UUID, service: JobService = Depends(get_job_service)
+) -> JobRead:
+    logger.info("received job retry request")
+    try:
+        job = service.retry_job(job_id)
+        logger.info("retry job request completed successfully")
+        return JobRead.model_validate(job)
+    except JobNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Job not found") from exc
+    except InvalidJobTransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception:
+        logger.error("retry job request failed", exc_info=True)
         raise

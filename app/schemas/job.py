@@ -19,6 +19,9 @@ class JobRead(BaseModel):
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
+    error_code: str | None
+    error_message: str | None
+    retry_count: int
 
 
 class JobGetByID(BaseModel):

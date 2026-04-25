@@ -81,8 +81,28 @@ class JobService:
         logger.info("failing job")
         job = self.get_job_by_id(job_id)
         job.transition_to(JobStatus.FAILED)
+        job.finished_at = datetime.datetime.now(datetime.UTC)
         job.error_code = payload.error_code
         job.error_message = payload.error_message
         updated_job = self._repo.update(job)
         logger.info("job failed successfully")
         return updated_job
+
+    def retry_job(self, job_id: UUID) -> Job:
+        set_job_id(job_id)
+        logger.info("retrying job")
+        job = self.get_job_by_id(job_id)
+        job.transition_to(JobStatus.RETRY_SCHEDULED)
+        updated_job = self._repo.update(job)
+
+        # immediately transition to QUEUED
+        # will add delay in later phase
+        updated_job.transition_to(JobStatus.QUEUED)
+        # Clear timestamps since job hasn't been started yet in this retry attempt
+        updated_job.started_at = None
+        updated_job.finished_at = None
+        final_job = self._repo.update(updated_job)
+        logger.info(
+            "job retried successfully", extra={"retry_count": final_job.retry_count}
+        )
+        return final_job
