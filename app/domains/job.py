@@ -45,6 +45,7 @@ class Job:
     source_uri: str
     created_at: datetime
     started_at: datetime | None = None
+    finished_at: datetime | None = None
 
     @classmethod
     def create_new(
@@ -71,6 +72,7 @@ class Job:
             status=JobStatus(db_job.status),
             created_at=db_job.created_at,
             started_at=db_job.started_at,
+            finished_at=db_job.finished_at,
         )
 
     def to_db_model(self) -> DBJob:
@@ -83,6 +85,7 @@ class Job:
             source_uri=self.source_uri,
             created_at=self.created_at,
             started_at=self.started_at,
+            finished_at=self.finished_at,
         )
 
     def transition_to(self, new_status: JobStatus) -> None:

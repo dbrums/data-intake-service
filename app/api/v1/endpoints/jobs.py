@@ -71,3 +71,23 @@ def patch_job_start(
     except Exception:
         logger.error("start jobs request failed", exc_info=True)
         raise
+
+
+@router.patch(
+    "/{job_id}/complete", response_model=JobRead, status_code=status.HTTP_200_OK
+)
+def patch_job_complete(
+    job_id: UUID, service: JobService = Depends(get_job_service)
+) -> JobRead:
+    logger.info("received job complete request")
+    try:
+        job = service.complete_job(job_id)
+        logger.info("complete job request completed successfully")
+        return JobRead.model_validate(job)
+    except JobNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Job not found") from exc
+    except InvalidJobTransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception:
+        logger.error("complete jobs request failed", exc_info=True)
+        raise

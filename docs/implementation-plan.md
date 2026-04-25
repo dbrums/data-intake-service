@@ -179,7 +179,7 @@ Jobs can be created but never transition states. You need to manually control st
    - `POST /api/v1/jobs/{job_id}/retry` - Transition FAILED → RETRY_SCHEDULED → QUEUED
    - `DELETE /api/v1/jobs/{job_id}` - Transition any state → CANCELLED
 
-   **Note**: These are operational/debugging tools for admins (manual intervention, incident response). Build without auth in Phase 1 (needed for testing), restrict to admin role in Phase 5. Regular users only access: POST /jobs (create), GET /jobs (list), GET /jobs/{id} (view).
+   **Note**: These are operational/debugging tools for admins (manual intervention, incident response). Build without auth in this phase (needed for testing), restrict to admin role in Phase 7. Regular users only access: POST /jobs (create), GET /jobs (list), GET /jobs/{id} (view).
 
 2. **Domain enhancements**:
    - Add `error_code` and `error_message` fields to Job domain model

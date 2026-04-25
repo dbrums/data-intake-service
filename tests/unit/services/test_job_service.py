@@ -78,3 +78,22 @@ def test_job_service_start_job_nonexistent_job(fake_job_repo: FakeJobRepository)
     service = JobService(fake_job_repo)
     with pytest.raises(JobNotFoundError):
         service.start_job(uuid4())
+
+
+def test_job_service_complete_job(
+    fake_job_repo: FakeJobRepository, job_create: JobCreate
+):
+    service = JobService(fake_job_repo)
+    job = service.create_job(job_create)
+
+    started_job = service.start_job(job.id)
+    completed_job = service.complete_job(started_job.id)
+
+    assert started_job.id == completed_job.id
+    assert completed_job.status == JobStatus.SUCCEEDED
+
+
+def test_job_service_complete_job_nonexistent_job(fake_job_repo: FakeJobRepository):
+    service = JobService(fake_job_repo)
+    with pytest.raises(JobNotFoundError):
+        service.complete_job(uuid4())

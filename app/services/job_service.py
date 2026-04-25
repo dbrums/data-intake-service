@@ -65,3 +65,13 @@ class JobService:
         updated_job = self._repo.update(job)
         logger.info("job started successfully")
         return updated_job
+
+    def complete_job(self, job_id: UUID) -> Job:
+        set_job_id(job_id)
+        logger.info("completing job")
+        job = self.get_job_by_id(job_id)
+        job.transition_to(JobStatus.SUCCEEDED)
+        job.finished_at = datetime.datetime.now(datetime.UTC)
+        updated_job = self._repo.update(job)
+        logger.info("job completed successfully")
+        return updated_job

@@ -54,7 +54,7 @@ def test_get_jobs_returns_200(client: TestClient, job_create: JobCreate):
     response = client.get("/api/v1/jobs")
 
     assert response.status_code == 200
-    jobs = response.json()
+    jobs: list[dict[str, object]] = response.json()
     assert isinstance(jobs, list)
     assert len(jobs) == 1
     assert jobs[0]["id"] == job_id
@@ -62,7 +62,7 @@ def test_get_jobs_returns_200(client: TestClient, job_create: JobCreate):
 
 
 def test_get_jobs_returns_all_jobs(client: TestClient, job_create: JobCreate):
-    job_ids = []
+    job_ids: list[str] = []
     for _ in range(3):
         response = client.post("/api/v1/jobs", json=job_create.model_dump())
         job_ids.append(response.json()["id"])
@@ -104,3 +104,21 @@ def test_patch_job_start_on_running_job_returns_409(
     # Try to start again (invalid transition: RUNNING → RUNNING)
     response = client.patch(f"/api/v1/jobs/{job_id}/start")
     assert response.status_code == 409
+
+
+def test_patch_job_complete_returns_200(client: TestClient, job_create: JobCreate):
+    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+    job_id = create_response.json()["id"]
+    start_response = client.patch(f"/api/v1/jobs/{job_id}/start")
+    job_id = start_response.json()["id"]
+
+    response = client.patch(f"/api/v1/jobs/{job_id}/complete")
+    assert response.status_code == 200
+    assert response.json()["status"] == JobStatus.SUCCEEDED.value
+    assert response.json()["finished_at"] is not None
+    assert response.json()["started_at"] <= response.json()["finished_at"]
+
+
+def test_patch_job_complete_nonexistent_job_returns_404(client: TestClient):
+    response = client.patch(f"/api/v1/jobs/{uuid4()}/complete")
+    assert response.status_code == 404
