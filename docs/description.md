@@ -456,9 +456,9 @@ Jobs transition through a well-defined state machine:
               │ QUEUED  │ ← Re-enters queue
               └─────────┘
 
-    Any state can transition to:
+    Non-terminal states can transition to:
     ┌──────────┐
-    │CANCELLED │ ← Manual cancellation
+    │CANCELLED │ ← Manual cancellation (from QUEUED, RUNNING, FAILED, RETRY_SCHEDULED)
     └──────────┘
 ```
 
@@ -472,8 +472,9 @@ State transitions are enforced in the domain model:
 - **RUNNING** → FAILED (validation failed or error occurred)
 - **RUNNING** → CANCELLED (manual cancellation)
 - **FAILED** → RETRY_SCHEDULED (if retries remain)
+- **FAILED** → CANCELLED (manual cancellation)
 - **RETRY_SCHEDULED** → QUEUED (scheduled retry executes)
-- **Any state** → CANCELLED (admin override)
+- **RETRY_SCHEDULED** → CANCELLED (manual cancellation)
 
 Invalid transitions (e.g., SUCCEEDED → RUNNING) raise domain exceptions.
 

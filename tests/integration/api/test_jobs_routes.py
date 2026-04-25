@@ -1,9 +1,30 @@
-from uuid import uuid4
+from collections.abc import Callable
+from uuid import UUID, uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.domains.job import JobStatus
 from app.schemas.job import JobCreate, JobFail
+
+
+@pytest.fixture
+def job_in_status(
+    client: TestClient, job_create: JobCreate, job_fail: JobFail
+) -> Callable[[JobStatus], UUID]:
+    def _create_job(status: JobStatus) -> UUID:
+        create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+        job_id = create_response.json()["id"]
+
+        if status == JobStatus.RUNNING:
+            client.patch(f"/api/v1/jobs/{job_id}/start")
+        elif status == JobStatus.FAILED:
+            client.patch(f"/api/v1/jobs/{job_id}/start")
+            client.patch(f"/api/v1/jobs/{job_id}/fail", json=job_fail.model_dump())
+
+        return job_id
+
+    return _create_job
 
 
 def test_post_jobs_returns_201_and_body(client: TestClient, job_create: JobCreate):
@@ -171,4 +192,23 @@ def test_post_job_retry_returns_200(
 
 def test_post_job_retry_nonexistent_job_returns_404(client: TestClient):
     response = client.post(f"/api/v1/jobs/{uuid4()}/retry")
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "status",
+    [JobStatus.QUEUED, JobStatus.RUNNING, JobStatus.FAILED, JobStatus.RETRY_SCHEDULED],
+)
+def test_delete_job_returns_200(
+    client: TestClient, job_in_status: Callable[[JobStatus], UUID], status: JobStatus
+):
+    job_id = job_in_status(status)
+    delete_response = client.delete(f"/api/v1/jobs/{job_id}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["status"] == JobStatus.CANCELLED.value
+    assert delete_response.json()["finished_at"] is not None
+
+
+def test_delete_job_nonexistent_job_returns_404(client: TestClient):
+    response = client.delete(f"/api/v1/jobs/{uuid4()}")
     assert response.status_code == 404

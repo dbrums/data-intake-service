@@ -1,4 +1,5 @@
-from uuid import uuid4
+from collections.abc import Callable
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -7,6 +8,26 @@ from app.schemas.job import JobCreate, JobFail
 from app.services.job_service import JobNotFoundError, JobService
 from tests.factories.job_factory import DEFAULTS
 from tests.fakes.fake_job_repository import FakeJobRepository
+
+
+@pytest.fixture
+def job_in_status(
+    fake_job_repo: FakeJobRepository, job_create: JobCreate, job_fail: JobFail
+) -> Callable[[JobStatus], UUID]:
+    def _create_job(status: JobStatus) -> UUID:
+        service = JobService(fake_job_repo)
+        created_job = service.create_job(job_create)
+        job_id = created_job.id
+
+        if status == JobStatus.RUNNING:
+            service.start_job(job_id)
+        elif status == JobStatus.FAILED:
+            service.start_job(job_id)
+            service.fail_job(job_fail, job_id)
+
+        return job_id
+
+    return _create_job
 
 
 def test_job_service_create_job(
@@ -151,6 +172,29 @@ def test_job_service_retry_job(
 
 
 def test_job_service_retry_job_nonexistent_job(fake_job_repo: FakeJobRepository):
+    service = JobService(fake_job_repo)
+    with pytest.raises(JobNotFoundError):
+        service.retry_job(uuid4())
+
+
+@pytest.mark.parametrize(
+    "status",
+    [JobStatus.QUEUED, JobStatus.RUNNING, JobStatus.FAILED, JobStatus.RETRY_SCHEDULED],
+)
+def test_job_service_cancel_job(
+    fake_job_repo: FakeJobRepository,
+    job_in_status: Callable[[JobStatus], UUID],
+    status: JobStatus,
+):
+    job_id = job_in_status(status)
+    service = JobService(fake_job_repo)
+    cancelled_job = service.cancel_job(job_id)
+
+    assert cancelled_job.status == JobStatus.CANCELLED
+    assert cancelled_job.finished_at is not None
+
+
+def test_job_service_cancel_job_nonexistent_job(fake_job_repo: FakeJobRepository):
     service = JobService(fake_job_repo)
     with pytest.raises(JobNotFoundError):
         service.retry_job(uuid4())

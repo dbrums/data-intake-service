@@ -106,3 +106,13 @@ class JobService:
             "job retried successfully", extra={"retry_count": final_job.retry_count}
         )
         return final_job
+
+    def cancel_job(self, job_id: UUID) -> Job:
+        set_job_id(job_id)
+        logger.info("cancelling job")
+        job = self.get_job_by_id(job_id)
+        job.transition_to(JobStatus.CANCELLED)
+        job.finished_at = datetime.datetime.now(datetime.UTC)
+        updated_job = self._repo.update(job)
+        logger.info("job cancelled successfully")
+        return updated_job

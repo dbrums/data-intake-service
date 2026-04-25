@@ -112,9 +112,13 @@ class Job:
         """FSM transition rules"""
         VALID_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
             JobStatus.QUEUED: {JobStatus.RUNNING, JobStatus.CANCELLED},
-            JobStatus.RUNNING: {JobStatus.SUCCEEDED, JobStatus.FAILED},
+            JobStatus.RUNNING: {
+                JobStatus.SUCCEEDED,
+                JobStatus.FAILED,
+                JobStatus.CANCELLED,
+            },
             JobStatus.FAILED: {JobStatus.RETRY_SCHEDULED, JobStatus.CANCELLED},
-            JobStatus.RETRY_SCHEDULED: {JobStatus.QUEUED},
+            JobStatus.RETRY_SCHEDULED: {JobStatus.QUEUED, JobStatus.CANCELLED},
             JobStatus.SUCCEEDED: set(),  # Terminal state
             JobStatus.CANCELLED: set(),  # Terminal state
         }

@@ -127,3 +127,19 @@ def post_job_retry(
     except Exception:
         logger.error("retry job request failed", exc_info=True)
         raise
+
+
+@router.delete("/{job_id}", response_model=JobRead, status_code=status.HTTP_200_OK)
+def delete_job(job_id: UUID, service: JobService = Depends(get_job_service)) -> JobRead:
+    logger.info("received job cancel request")
+    try:
+        job = service.cancel_job(job_id)
+        logger.info("cancel job request completed successfully")
+        return JobRead.model_validate(job)
+    except JobNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Job not found") from exc
+    except InvalidJobTransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception:
+        logger.error("cancel job request failed", exc_info=True)
+        raise
