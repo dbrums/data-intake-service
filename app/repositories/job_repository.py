@@ -3,11 +3,11 @@ from abc import ABC, abstractmethod
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.exc import MultipleResultsFound, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, MultipleResultsFound, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.models.job import Job as DBJob
-from app.domains.job import Job
+from app.domains.job import IdempotencyKeyIntegrityError, Job
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,20 @@ class SqlAlchemyJobRepository(AbstractJobRepository):
             self._session.commit()
             self._session.refresh(db_job)
             return Job.from_db_model(db_job)
+        except IntegrityError as e:
+            self._session.rollback()
+            # Check if it's the idempotency key constraint violation
+            if job.idempotency_key and "idempotency_key" in str(e.orig).lower():
+                logger.info(
+                    f"idempotency key constraint violation: {job.idempotency_key}"
+                )
+                # Race condition - return existing job
+                existing = self.get_by_idempotency_key(job.idempotency_key)
+                if existing:
+                    return existing
+            # Re-raise if it's a different integrity error or job not found
+            logger.error("database integrity error during job creation", exc_info=True)
+            raise
         except SQLAlchemyError:
             logger.error("database error during job creation", exc_info=True)
             self._session.rollback()
@@ -63,11 +77,13 @@ class SqlAlchemyJobRepository(AbstractJobRepository):
             query = select(DBJob).where(DBJob.idempotency_key == idempotency_key)
             db_job = self._session.scalars(query).one_or_none()
             return None if db_job is None else Job.from_db_model(db_job)
-        except MultipleResultsFound:
+        except MultipleResultsFound as e:
             logger.error(
-                f"multiple results found when searching for idempotency key {idempotency_key}"
+                f"multiple results found for idempotency key {idempotency_key}"
             )
-            raise
+            raise IdempotencyKeyIntegrityError(
+                "Database integrity violation: duplicate idempotency keys found"
+            ) from e
         except SQLAlchemyError:
             logger.error("database error during job retrieval", exc_info=True)
             raise

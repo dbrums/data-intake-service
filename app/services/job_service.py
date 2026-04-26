@@ -2,6 +2,7 @@ import datetime
 import logging
 from uuid import UUID
 
+from app.core.config import settings
 from app.core.logging import set_job_id
 from app.domains.job import DataSource, Job, JobStatus
 from app.repositories.job_repository import AbstractJobRepository
@@ -19,6 +20,10 @@ class IdempotentCreateInTerminalStateError(Exception):
 
 
 class IdempotencyKeyConflictError(Exception):
+    pass
+
+
+class MaxRetriesExceededError(Exception):
     pass
 
 
@@ -43,11 +48,10 @@ class JobService:
             if existing_job is not None:
                 if existing_job.is_terminal_state():
                     logger.warning(
-                        "idempotent create invalid: existing job in terminal state"
+                        f"Idempotency conflict: key {payload.idempotency_key} in terminal state {existing_job.status}"
                     )
                     raise IdempotentCreateInTerminalStateError(
-                        f"idempotent create on idempotency key {payload.idempotency_key} "
-                        f"is not valid since job is in terminal state {existing_job.status.value}"
+                        "request cannot be retried - original job has completed"
                     )
                 if not self._request_matches_job(payload, existing_job):
                     logger.warning(
@@ -133,20 +137,28 @@ class JobService:
         set_job_id(job_id)
         logger.info("retrying job")
         job = self.get_job_by_id(job_id)
-        job.transition_to(JobStatus.RETRY_SCHEDULED)
-        updated_job = self._repo.update(job)
+
+        if job.retry_count >= settings.MAX_JOB_RETRIES:
+            logger.warning("maximum retry limit exceeded")
+            raise MaxRetriesExceededError(
+                f"Cannot retry job: maximum retry limit ({settings.MAX_JOB_RETRIES}) exceeded"
+            )
 
         # immediately transition to QUEUED
         # will add delay in later phase
-        updated_job.transition_to(JobStatus.QUEUED)
-        # Clear timestamps since job hasn't been started yet in this retry attempt
-        updated_job.started_at = None
-        updated_job.finished_at = None
-        final_job = self._repo.update(updated_job)
+        job.transition_to(JobStatus.RETRY_SCHEDULED)
+        job.transition_to(JobStatus.QUEUED)
+        # timestamps cleared since job hasn't been started yet in this retry attempt
+        job.started_at = None
+        job.finished_at = None
+        job.error_code = None
+        job.error_message = None
+
+        updated_job = self._repo.update(job)
         logger.info(
-            "job retried successfully", extra={"retry_count": final_job.retry_count}
+            "job retried successfully", extra={"retry_count": updated_job.retry_count}
         )
-        return final_job
+        return updated_job
 
     def cancel_job(self, job_id: UUID) -> Job:
         set_job_id(job_id)

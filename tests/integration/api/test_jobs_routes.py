@@ -85,7 +85,7 @@ def test_post_jobs_with_idempotency_key_terminal_state_returns_409(
 
     assert response1.status_code == 201
     assert response2.status_code == 409
-    assert "terminal state" in response2.json()["detail"]
+    assert "cannot be retried" in response2.json()["detail"].lower()
 
 
 def test_post_jobs_invalid_payload_returns_422(client: TestClient):
@@ -162,7 +162,7 @@ def test_patch_job_start_returns_200(
     assert response.status_code == 200
     assert response.json()["status"] == JobStatus.RUNNING.value
     assert response.json()["started_at"] is not None
-    assert response.json()["created_at"] <= response.json()["created_at"]
+    assert response.json()["created_at"] <= response.json()["started_at"]
 
 
 def test_patch_job_start_nonexistent_job_returns_404(client: TestClient):
@@ -269,3 +269,22 @@ def test_delete_job_returns_200(
 def test_delete_job_nonexistent_job_returns_404(client: TestClient):
     response = client.delete(f"/api/v1/jobs/{uuid4()}")
     assert response.status_code == 404
+
+
+def test_delete_job_from_succeeded_returns_409(
+    client: TestClient, job_create: Callable[..., JobCreate]
+):
+    # Create and complete job
+    response = client.post("/api/v1/jobs", json=job_create().model_dump())
+    job_id = response.json()["id"]
+    client.patch(f"/api/v1/jobs/{job_id}/start")
+    client.patch(f"/api/v1/jobs/{job_id}/complete")
+
+    # Attempt to cancel completed job
+    delete_response = client.delete(f"/api/v1/jobs/{job_id}")
+
+    assert delete_response.status_code == 409
+    assert (
+        "cannot transition from succeeded to cancelled"
+        in delete_response.json()["detail"].lower()
+    )

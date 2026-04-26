@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from app.core.config import settings
 from app.domains.job import JobStatus
 from app.schemas.job import JobCreate, JobFail
 from app.services.job_service import (
@@ -10,6 +11,7 @@ from app.services.job_service import (
     IdempotentCreateInTerminalStateError,
     JobNotFoundError,
     JobService,
+    MaxRetriesExceededError,
 )
 from tests.factories.job_factory import DEFAULTS
 from tests.fakes.fake_job_repository import FakeJobRepository
@@ -173,15 +175,20 @@ def test_job_service_retry_job(
     service = JobService(fake_job_repo)
     job = service.create_job(job_create())
 
-    started_job = service.start_job(job.id)
-    failed_job = service.fail_job(job_fail, started_job.id)
-    retried_job = service.retry_job(failed_job.id)
+    for i in range(settings.MAX_JOB_RETRIES):
+        service.start_job(job.id)
+        failed_job = service.fail_job(job_fail, job.id)
+        retried_job = service.retry_job(failed_job.id)
+        assert failed_job.id == retried_job.id
+        assert retried_job.status == JobStatus.QUEUED
+        assert retried_job.retry_count == i + 1
+        assert retried_job.started_at is None
+        assert retried_job.finished_at is None
 
-    assert started_job.id == retried_job.id
-    assert retried_job.status == JobStatus.QUEUED
-    assert retried_job.retry_count == 1
-    assert retried_job.started_at is None
-    assert retried_job.finished_at is None
+    service.start_job(job.id)
+    failed_job = service.fail_job(job_fail, job.id)
+    with pytest.raises(MaxRetriesExceededError):
+        service.retry_job(failed_job.id)
 
 
 def test_job_service_retry_job_nonexistent_job(fake_job_repo: FakeJobRepository):
@@ -210,7 +217,7 @@ def test_job_service_cancel_job(
 def test_job_service_cancel_job_nonexistent_job(fake_job_repo: FakeJobRepository):
     service = JobService(fake_job_repo)
     with pytest.raises(JobNotFoundError):
-        service.retry_job(uuid4())
+        service.cancel_job(uuid4())
 
 
 def test_job_service_create_job_with_idempotency_key_returns_same_job(
@@ -249,5 +256,5 @@ def test_job_service_create_job_with_idempotency_key_terminal_state_raises(
     service.start_job(job.id)
     service.complete_job(job.id)
 
-    with pytest.raises(IdempotentCreateInTerminalStateError, match="terminal state"):
+    with pytest.raises(IdempotentCreateInTerminalStateError, match="cannot be retried"):
         service.create_job(payload)

@@ -30,5 +30,5 @@ class JobGetByID(BaseModel):
 
 
 class JobFail(BaseModel):
-    error_code: str
-    error_message: str
+    error_code: str = Field(max_length=50, pattern=r"^[A-Z_0-9]+$")
+    error_message: str = Field(max_length=500, min_length=1)

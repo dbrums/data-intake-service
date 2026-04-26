@@ -66,7 +66,7 @@ def job_create() -> Callable[..., JobCreate]:
 
 @pytest.fixture
 def job_fail() -> JobFail:
-    return JobFail(error_code="error_code", error_message="error_message")
+    return JobFail(error_code="ERROR_CODE", error_message="error_message")
 
 
 @pytest.fixture(scope="session")

@@ -8,7 +8,8 @@ from tests.fakes.fake_job_repository import FakeJobRepository
 def test_fake_job_repo_create(
     fake_job_repo: FakeJobRepository, job: Callable[..., Job]
 ):
-    created_job = fake_job_repo.create(job())
+    test_job = job()
+    created_job = fake_job_repo.create(test_job)
 
     assert created_job.id is not None
     attr_list = [
@@ -19,7 +20,7 @@ def test_fake_job_repo_create(
         "status",
     ]
     for field in attr_list:
-        assert getattr(created_job, field) == getattr(job(), field)
+        assert getattr(created_job, field) == getattr(test_job, field)
 
 
 def test_fake_job_repo_get_by_id(
@@ -86,7 +87,7 @@ def test_fake_job_repository_update(
     test_job = job()
     created_job = fake_job_repo.create(test_job)
     created_job.status = JobStatus.RUNNING
-    updated_job = fake_job_repo.update(test_job)
+    updated_job = fake_job_repo.update(created_job)
 
     assert created_job.id == updated_job.id
     assert created_job.status == JobStatus.RUNNING

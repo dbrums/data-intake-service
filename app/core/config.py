@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     DATABASE_URL: str = "sqlite:///./data_intake.db"
     LOG_LEVEL: str = "INFO"
+    MAX_JOB_RETRIES: int = 3
 
     @model_validator(mode="after")
     def validate_production_settings(self) -> Self:

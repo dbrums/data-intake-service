@@ -11,6 +11,7 @@ from app.services.job_service import (
     IdempotentCreateInTerminalStateError,
     JobNotFoundError,
     JobService,
+    MaxRetriesExceededError,
 )
 
 logger = logging.getLogger(__name__)
@@ -130,9 +131,17 @@ def post_job_retry(
         logger.info("retry job request completed successfully")
         return JobRead.model_validate(job)
     except JobNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Job not found") from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        ) from exc
+    except MaxRetriesExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
     except InvalidJobTransitionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
     except Exception:
         logger.error("retry job request failed", exc_info=True)
         raise

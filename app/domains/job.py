@@ -12,6 +12,12 @@ class InvalidJobTransitionError(Exception):
     pass
 
 
+class IdempotencyKeyIntegrityError(Exception):
+    """Raised when database integrity violation on idempotency_key is detected."""
+
+    pass
+
+
 @dataclass
 class DataSource:
     """Value object - no identity"""
