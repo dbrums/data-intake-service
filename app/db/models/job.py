@@ -19,6 +19,7 @@ class Job(Base):
     schema_version: Mapped[str] = mapped_column(String(50), nullable=False)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False)
     source_uri: Mapped[str] = mapped_column(String(500), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(100), nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="queued")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -1,3 +1,6 @@
+import random
+import string
+from collections.abc import Callable
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
@@ -5,10 +8,13 @@ from sqlalchemy.orm import Session
 from app.domains.job import DataSource, Job, JobStatus
 from app.repositories.job_repository import SqlAlchemyJobRepository
 
+CHARACTERS = string.ascii_letters + string.digits
 
-def test_job_repository_create(db_session: Session, job: Job):
+
+def test_job_repository_create(db_session: Session, job: Callable[..., Job]):
     repo = SqlAlchemyJobRepository(db_session)
-    created_job = repo.create(job)
+    test_job = job()
+    created_job = repo.create(test_job)
     assert created_job.id is not None
     attr_list = [
         "dataset_type",
@@ -18,12 +24,12 @@ def test_job_repository_create(db_session: Session, job: Job):
         "status",
     ]
     for field in attr_list:
-        assert getattr(created_job, field) == getattr(job, field)
+        assert getattr(created_job, field) == getattr(test_job, field)
 
 
-def test_job_repo_get_by_id(db_session: Session, job: Job):
+def test_job_repo_get_by_id(db_session: Session, job: Callable[..., Job]):
     repo = SqlAlchemyJobRepository(db_session)
-    created_job = repo.create(job)
+    created_job = repo.create(job())
     assert repo.get_by_id(created_job.id) == created_job
 
 
@@ -76,11 +82,25 @@ def test_job_repo_list_all_multiple_jobs(db_session: Session):
     assert job3.id in job_ids
 
 
-def test_fake_job_repository_update(db_session: Session, job: Job):
+def test_fake_job_repository_update(db_session: Session, job: Callable[..., Job]):
     repo = SqlAlchemyJobRepository(db_session)
-    created_job = repo.create(job)
+    test_job = job()
+    created_job = repo.create(test_job)
     created_job.status = JobStatus.RUNNING
-    updated_job = repo.update(job)
+    updated_job = repo.update(test_job)
 
     assert created_job.id == updated_job.id
     assert created_job.status == JobStatus.RUNNING
+
+
+def test_job_repo_get_by_idempotency_key(db_session: Session, job: Callable[..., Job]):
+    repo = SqlAlchemyJobRepository(db_session)
+    created_job = repo.create(job(idempotency_key="idempotency_key"))
+    assert created_job.idempotency_key is not None
+    assert repo.get_by_idempotency_key(created_job.idempotency_key) == created_job
+
+
+def test_job_repo_get_by_idempotency_key_not_found(db_session: Session):
+    repo = SqlAlchemyJobRepository(db_session)
+    random_string = "".join(random.choices(CHARACTERS, k=12))
+    assert repo.get_by_idempotency_key(random_string) is None

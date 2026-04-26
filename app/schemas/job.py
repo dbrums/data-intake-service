@@ -9,6 +9,7 @@ class JobCreate(BaseModel):
     schema_version: str = Field(default="v1")
     source_type: str
     source_uri: str
+    idempotency_key: str | None = Field(default=None)
 
 
 class JobRead(BaseModel):

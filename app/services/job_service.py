@@ -14,11 +14,51 @@ class JobNotFoundError(Exception):
     pass
 
 
+class IdempotentCreateInTerminalStateError(Exception):
+    pass
+
+
+class IdempotencyKeyConflictError(Exception):
+    pass
+
+
 class JobService:
     def __init__(self, repo: AbstractJobRepository):
         self._repo = repo
 
+    def _request_matches_job(self, payload: JobCreate, job: Job) -> bool:
+        return (
+            payload.dataset_type == job.dataset_type
+            and payload.schema_version == job.schema_version
+            and payload.source_type == job.source_type
+            and payload.source_uri == job.source_uri
+        )
+
     def create_job(self, payload: JobCreate) -> Job:
+        if payload.idempotency_key is not None:
+            logger.info(
+                f"checking existing job for idempotency key {payload.idempotency_key}"
+            )
+            existing_job = self._repo.get_by_idempotency_key(payload.idempotency_key)
+            if existing_job is not None:
+                if existing_job.is_terminal_state():
+                    logger.warning(
+                        "idempotent create invalid: existing job in terminal state"
+                    )
+                    raise IdempotentCreateInTerminalStateError(
+                        f"idempotent create on idempotency key {payload.idempotency_key} "
+                        f"is not valid since job is in terminal state {existing_job.status.value}"
+                    )
+                if not self._request_matches_job(payload, existing_job):
+                    logger.warning(
+                        "idempotent create conflict: request parameters differ from original"
+                    )
+                    raise IdempotencyKeyConflictError(
+                        f"Request with idempotency key {payload.idempotency_key} "
+                        f"has different parameters than original request"
+                    )
+                logger.info("returning existing job for idempotency key")
+                return existing_job
         data_source = DataSource(
             type=payload.source_type,
             uri=payload.source_uri,
@@ -27,6 +67,7 @@ class JobService:
             dataset_type=payload.dataset_type,
             schema_version=payload.schema_version,
             source=data_source,
+            idempotency_key=payload.idempotency_key,
         )
         set_job_id(in_job.id)
         logger.info(

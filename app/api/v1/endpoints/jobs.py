@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.deps import get_job_service
 from app.domains.job import InvalidJobTransitionError
 from app.schemas.job import JobCreate, JobFail, JobRead
-from app.services.job_service import JobNotFoundError, JobService
+from app.services.job_service import (
+    IdempotencyKeyConflictError,
+    IdempotentCreateInTerminalStateError,
+    JobNotFoundError,
+    JobService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +27,10 @@ def create_job(
         job = service.create_job(payload)
         logger.info("job creation request completed successfully")
         return JobRead.model_validate(job)
+    except IdempotencyKeyConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IdempotentCreateInTerminalStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception:
         logger.error("job creation request failed", exc_info=True)
         raise

@@ -5,18 +5,25 @@ import pytest
 
 from app.domains.job import JobStatus
 from app.schemas.job import JobCreate, JobFail
-from app.services.job_service import JobNotFoundError, JobService
+from app.services.job_service import (
+    IdempotencyKeyConflictError,
+    IdempotentCreateInTerminalStateError,
+    JobNotFoundError,
+    JobService,
+)
 from tests.factories.job_factory import DEFAULTS
 from tests.fakes.fake_job_repository import FakeJobRepository
 
 
 @pytest.fixture
 def job_in_status(
-    fake_job_repo: FakeJobRepository, job_create: JobCreate, job_fail: JobFail
+    fake_job_repo: FakeJobRepository,
+    job_create: Callable[..., JobCreate],
+    job_fail: JobFail,
 ) -> Callable[[JobStatus], UUID]:
     def _create_job(status: JobStatus) -> UUID:
         service = JobService(fake_job_repo)
-        created_job = service.create_job(job_create)
+        created_job = service.create_job(job_create())
         job_id = created_job.id
 
         if status == JobStatus.RUNNING:
@@ -31,10 +38,10 @@ def job_in_status(
 
 
 def test_job_service_create_job(
-    fake_job_repo: FakeJobRepository, job_create: JobCreate
+    fake_job_repo: FakeJobRepository, job_create: Callable[..., JobCreate]
 ):
     service = JobService(fake_job_repo)
-    job = service.create_job(job_create)
+    job = service.create_job(job_create())
 
     assert job.id is not None
     assert job.status == JobStatus.QUEUED
@@ -57,10 +64,10 @@ def test_job_service_get_jobs_returns_empty_list(fake_job_repo: FakeJobRepositor
 
 
 def test_job_service_get_jobs_returns_single_job(
-    fake_job_repo: FakeJobRepository, job_create: JobCreate
+    fake_job_repo: FakeJobRepository, job_create: Callable[..., JobCreate]
 ):
     service = JobService(fake_job_repo)
-    created_job = service.create_job(job_create)
+    created_job = service.create_job(job_create())
 
     jobs = service.get_jobs()
 
@@ -70,12 +77,12 @@ def test_job_service_get_jobs_returns_single_job(
 
 
 def test_job_service_get_jobs_returns_multiple_jobs(
-    fake_job_repo: FakeJobRepository, job_create: JobCreate
+    fake_job_repo: FakeJobRepository, job_create: Callable[..., JobCreate]
 ):
     service = JobService(fake_job_repo)
-    created_job1 = service.create_job(job_create)
-    created_job2 = service.create_job(job_create)
-    created_job3 = service.create_job(job_create)
+    created_job1 = service.create_job(job_create())
+    created_job2 = service.create_job(job_create())
+    created_job3 = service.create_job(job_create())
 
     jobs = service.get_jobs()
 
@@ -86,9 +93,11 @@ def test_job_service_get_jobs_returns_multiple_jobs(
     assert created_job3.id in job_ids
 
 
-def test_job_service_start_job(fake_job_repo: FakeJobRepository, job_create: JobCreate):
+def test_job_service_start_job(
+    fake_job_repo: FakeJobRepository, job_create: Callable[..., JobCreate]
+):
     service = JobService(fake_job_repo)
-    job = service.create_job(job_create)
+    job = service.create_job(job_create())
 
     started_job = service.start_job(job.id)
 
@@ -107,10 +116,10 @@ def test_job_service_start_job_nonexistent_job(fake_job_repo: FakeJobRepository)
 
 
 def test_job_service_complete_job(
-    fake_job_repo: FakeJobRepository, job_create: JobCreate
+    fake_job_repo: FakeJobRepository, job_create: Callable[..., JobCreate]
 ):
     service = JobService(fake_job_repo)
-    job = service.create_job(job_create)
+    job = service.create_job(job_create())
 
     started_job = service.start_job(job.id)
     completed_job = service.complete_job(started_job.id)
@@ -129,10 +138,12 @@ def test_job_service_complete_job_nonexistent_job(fake_job_repo: FakeJobReposito
 
 
 def test_job_service_fail_job(
-    fake_job_repo: FakeJobRepository, job_create: JobCreate, job_fail: JobFail
+    fake_job_repo: FakeJobRepository,
+    job_create: Callable[..., JobCreate],
+    job_fail: JobFail,
 ):
     service = JobService(fake_job_repo)
-    job = service.create_job(job_create)
+    job = service.create_job(job_create())
 
     started_job = service.start_job(job.id)
     failed_job = service.fail_job(job_fail, started_job.id)
@@ -155,10 +166,12 @@ def test_job_service_fail_job_nonexistent_job(
 
 
 def test_job_service_retry_job(
-    fake_job_repo: FakeJobRepository, job_create: JobCreate, job_fail: JobFail
+    fake_job_repo: FakeJobRepository,
+    job_create: Callable[..., JobCreate],
+    job_fail: JobFail,
 ):
     service = JobService(fake_job_repo)
-    job = service.create_job(job_create)
+    job = service.create_job(job_create())
 
     started_job = service.start_job(job.id)
     failed_job = service.fail_job(job_fail, started_job.id)
@@ -198,3 +211,43 @@ def test_job_service_cancel_job_nonexistent_job(fake_job_repo: FakeJobRepository
     service = JobService(fake_job_repo)
     with pytest.raises(JobNotFoundError):
         service.retry_job(uuid4())
+
+
+def test_job_service_create_job_with_idempotency_key_returns_same_job(
+    fake_job_repo: FakeJobRepository, job_create: Callable[..., JobCreate]
+):
+    service = JobService(fake_job_repo)
+    payload = job_create(idempotency_key="test-key")
+
+    job1 = service.create_job(payload)
+    job2 = service.create_job(payload)
+
+    assert job1.id == job2.id
+    assert job1.idempotency_key == "test-key"
+
+
+def test_job_service_create_job_with_idempotency_key_different_params_raises(
+    fake_job_repo: FakeJobRepository, job_create: Callable[..., JobCreate]
+):
+    service = JobService(fake_job_repo)
+    payload1 = job_create(idempotency_key="test-key", dataset_type="type1")
+    payload2 = job_create(idempotency_key="test-key", dataset_type="type2")
+
+    service.create_job(payload1)
+
+    with pytest.raises(IdempotencyKeyConflictError, match="different parameters"):
+        service.create_job(payload2)
+
+
+def test_job_service_create_job_with_idempotency_key_terminal_state_raises(
+    fake_job_repo: FakeJobRepository, job_create: Callable[..., JobCreate]
+):
+    service = JobService(fake_job_repo)
+    payload = job_create(idempotency_key="test-key")
+
+    job = service.create_job(payload)
+    service.start_job(job.id)
+    service.complete_job(job.id)
+
+    with pytest.raises(IdempotentCreateInTerminalStateError, match="terminal state"):
+        service.create_job(payload)

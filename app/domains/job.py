@@ -49,10 +49,15 @@ class Job:
     error_code: str | None = None
     error_message: str | None = None
     retry_count: int = 0
+    idempotency_key: str | None = None
 
     @classmethod
     def create_new(
-        cls, dataset_type: str, schema_version: str, source: DataSource
+        cls,
+        dataset_type: str,
+        schema_version: str,
+        source: DataSource,
+        idempotency_key: str | None = None,
     ) -> Job:
         return cls(
             id=uuid4(),
@@ -61,6 +66,7 @@ class Job:
             schema_version=schema_version,
             source_type=source.type,
             source_uri=source.uri,
+            idempotency_key=idempotency_key,
             created_at=datetime.now(UTC),
         )
 
@@ -72,6 +78,7 @@ class Job:
             schema_version=db_job.schema_version,
             source_type=db_job.source_type,
             source_uri=db_job.source_uri,
+            idempotency_key=db_job.idempotency_key,
             status=JobStatus(db_job.status),
             created_at=db_job.created_at,
             started_at=db_job.started_at,
@@ -89,6 +96,7 @@ class Job:
             schema_version=self.schema_version,
             source_type=self.source_type,
             source_uri=self.source_uri,
+            idempotency_key=self.idempotency_key,
             created_at=self.created_at,
             started_at=self.started_at,
             finished_at=self.finished_at,
@@ -123,3 +131,10 @@ class Job:
             JobStatus.CANCELLED: set(),  # Terminal state
         }
         return new_status in VALID_TRANSITIONS[self.status]
+
+    def is_terminal_state(self) -> bool:
+        return self.status in {
+            JobStatus.SUCCEEDED,
+            JobStatus.FAILED,
+            JobStatus.CANCELLED,
+        }

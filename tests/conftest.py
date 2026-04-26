@@ -1,5 +1,5 @@
 import os
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from typing import Any
 
 import pytest
@@ -49,13 +49,19 @@ def fake_job_repo() -> FakeJobRepository:
 
 
 @pytest.fixture
-def job() -> Job:
-    return job_factory()
+def job() -> Callable[..., Job]:
+    def _create_job(**overrides: Any) -> Job:
+        return job_factory(**overrides)
+
+    return _create_job
 
 
 @pytest.fixture
-def job_create() -> JobCreate:
-    return job_create_factory()
+def job_create() -> Callable[..., JobCreate]:
+    def _create_job_create(**overrides: Any) -> JobCreate:
+        return job_create_factory(**overrides)
+
+    return _create_job_create
 
 
 @pytest.fixture

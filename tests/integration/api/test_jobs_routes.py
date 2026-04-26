@@ -10,10 +10,10 @@ from app.schemas.job import JobCreate, JobFail
 
 @pytest.fixture
 def job_in_status(
-    client: TestClient, job_create: JobCreate, job_fail: JobFail
+    client: TestClient, job_create: Callable[..., JobCreate], job_fail: JobFail
 ) -> Callable[[JobStatus], UUID]:
     def _create_job(status: JobStatus) -> UUID:
-        create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+        create_response = client.post("/api/v1/jobs", json=job_create().model_dump())
         job_id = create_response.json()["id"]
 
         if status == JobStatus.RUNNING:
@@ -27,8 +27,10 @@ def job_in_status(
     return _create_job
 
 
-def test_post_jobs_returns_201_and_body(client: TestClient, job_create: JobCreate):
-    response = client.post("/api/v1/jobs", json=job_create.model_dump())
+def test_post_jobs_returns_201_and_body(
+    client: TestClient, job_create: Callable[..., JobCreate]
+):
+    response = client.post("/api/v1/jobs", json=job_create().model_dump())
 
     assert response.status_code == 201
 
@@ -37,14 +39,63 @@ def test_post_jobs_returns_201_and_body(client: TestClient, job_create: JobCreat
     assert body["status"] == JobStatus.QUEUED.value
 
 
+def test_post_jobs_with_idempotency_key_returns_same_job(
+    client: TestClient, job_create: Callable[..., JobCreate]
+):
+    create_response = client.post(
+        "/api/v1/jobs", json=job_create(idempotency_key="my-key").model_dump()
+    )
+
+    idempotent_create_response = client.post(
+        "/api/v1/jobs", json=job_create(idempotency_key="my-key").model_dump()
+    )
+
+    assert create_response.json()["id"] == idempotent_create_response.json()["id"]
+    assert create_response.status_code == 201
+    assert idempotent_create_response.status_code == 201
+
+
+def test_post_jobs_with_idempotency_key_different_params_returns_409(
+    client: TestClient, job_create: Callable[..., JobCreate]
+):
+    payload1 = job_create(idempotency_key="test-key-456", dataset_type="type1")
+    payload2 = job_create(idempotency_key="test-key-456", dataset_type="type2")
+
+    response1 = client.post("/api/v1/jobs", json=payload1.model_dump())
+    response2 = client.post("/api/v1/jobs", json=payload2.model_dump())
+
+    assert response1.status_code == 201
+    assert response2.status_code == 409
+    assert "different parameters" in response2.json()["detail"]
+
+
+def test_post_jobs_with_idempotency_key_terminal_state_returns_409(
+    client: TestClient, job_create: Callable[..., JobCreate]
+):
+    payload = job_create(idempotency_key="test-key-789")
+    response1 = client.post("/api/v1/jobs", json=payload.model_dump())
+    job_id = response1.json()["id"]
+
+    # Complete the job (terminal state)
+    client.patch(f"/api/v1/jobs/{job_id}/start")
+    client.patch(f"/api/v1/jobs/{job_id}/complete")
+
+    # Try to create again with same idempotency key
+    response2 = client.post("/api/v1/jobs", json=payload.model_dump())
+
+    assert response1.status_code == 201
+    assert response2.status_code == 409
+    assert "terminal state" in response2.json()["detail"]
+
+
 def test_post_jobs_invalid_payload_returns_422(client: TestClient):
     response = client.post("/api/v1/jobs", json={"name": 123})
 
     assert response.status_code == 422
 
 
-def test_get_job_returns_200(client: TestClient, job_create: JobCreate):
-    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+def test_get_job_returns_200(client: TestClient, job_create: Callable[..., JobCreate]):
+    create_response = client.post("/api/v1/jobs", json=job_create().model_dump())
     job_id = create_response.json()["id"]
 
     response = client.get(f"/api/v1/jobs/{job_id}")
@@ -68,8 +119,8 @@ def test_get_jobs_returns_empty_list_when_no_jobs(client: TestClient):
     assert response.json() == []
 
 
-def test_get_jobs_returns_200(client: TestClient, job_create: JobCreate):
-    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+def test_get_jobs_returns_200(client: TestClient, job_create: Callable[..., JobCreate]):
+    create_response = client.post("/api/v1/jobs", json=job_create().model_dump())
     job_id = create_response.json()["id"]
 
     response = client.get("/api/v1/jobs")
@@ -82,10 +133,12 @@ def test_get_jobs_returns_200(client: TestClient, job_create: JobCreate):
     assert jobs[0]["status"] == JobStatus.QUEUED.value
 
 
-def test_get_jobs_returns_all_jobs(client: TestClient, job_create: JobCreate):
+def test_get_jobs_returns_all_jobs(
+    client: TestClient, job_create: Callable[..., JobCreate]
+):
     job_ids: list[str] = []
     for _ in range(3):
-        response = client.post("/api/v1/jobs", json=job_create.model_dump())
+        response = client.post("/api/v1/jobs", json=job_create().model_dump())
         job_ids.append(response.json()["id"])
 
     response = client.get("/api/v1/jobs")
@@ -99,8 +152,10 @@ def test_get_jobs_returns_all_jobs(client: TestClient, job_create: JobCreate):
         assert job["status"] == JobStatus.QUEUED.value
 
 
-def test_patch_job_start_returns_200(client: TestClient, job_create: JobCreate):
-    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+def test_patch_job_start_returns_200(
+    client: TestClient, job_create: Callable[..., JobCreate]
+):
+    create_response = client.post("/api/v1/jobs", json=job_create().model_dump())
     job_id = create_response.json()["id"]
 
     response = client.patch(f"/api/v1/jobs/{job_id}/start")
@@ -116,9 +171,9 @@ def test_patch_job_start_nonexistent_job_returns_404(client: TestClient):
 
 
 def test_patch_job_start_on_running_job_returns_409(
-    client: TestClient, job_create: JobCreate
+    client: TestClient, job_create: Callable[..., JobCreate]
 ):
-    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+    create_response = client.post("/api/v1/jobs", json=job_create().model_dump())
     job_id = create_response.json()["id"]
 
     client.patch(f"/api/v1/jobs/{job_id}/start")
@@ -128,8 +183,10 @@ def test_patch_job_start_on_running_job_returns_409(
     assert response.status_code == 409
 
 
-def test_patch_job_complete_returns_200(client: TestClient, job_create: JobCreate):
-    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+def test_patch_job_complete_returns_200(
+    client: TestClient, job_create: Callable[..., JobCreate]
+):
+    create_response = client.post("/api/v1/jobs", json=job_create().model_dump())
     job_id = create_response.json()["id"]
     start_response = client.patch(f"/api/v1/jobs/{job_id}/start")
     job_id = start_response.json()["id"]
@@ -148,9 +205,9 @@ def test_patch_job_complete_nonexistent_job_returns_404(client: TestClient):
 
 
 def test_patch_job_fail_returns_200(
-    client: TestClient, job_create: JobCreate, job_fail: JobFail
+    client: TestClient, job_create: Callable[..., JobCreate], job_fail: JobFail
 ):
-    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+    create_response = client.post("/api/v1/jobs", json=job_create().model_dump())
     job_id = create_response.json()["id"]
     start_response = client.patch(f"/api/v1/jobs/{job_id}/start")
     job_id = start_response.json()["id"]
@@ -171,9 +228,9 @@ def test_patch_job_fail_nonexistent_job_returns_404(
 
 
 def test_post_job_retry_returns_200(
-    client: TestClient, job_create: JobCreate, job_fail: JobFail
+    client: TestClient, job_create: Callable[..., JobCreate], job_fail: JobFail
 ):
-    create_response = client.post("/api/v1/jobs", json=job_create.model_dump())
+    create_response = client.post("/api/v1/jobs", json=job_create().model_dump())
     job_id = create_response.json()["id"]
     start_response = client.patch(f"/api/v1/jobs/{job_id}/start")
     job_id = start_response.json()["id"]

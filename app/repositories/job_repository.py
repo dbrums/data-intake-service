@@ -2,7 +2,8 @@ import logging
 from abc import ABC, abstractmethod
 from uuid import UUID
 
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import select
+from sqlalchemy.exc import MultipleResultsFound, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.models.job import Job as DBJob
@@ -18,6 +19,10 @@ class AbstractJobRepository(ABC):
 
     @abstractmethod
     def get_by_id(self, job_id: UUID) -> Job | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_by_idempotency_key(self, idempotency_key: str) -> Job | None:
         raise NotImplementedError
 
     @abstractmethod
@@ -49,6 +54,20 @@ class SqlAlchemyJobRepository(AbstractJobRepository):
         try:
             db_job = self._session.get(DBJob, job_id)
             return None if db_job is None else Job.from_db_model(db_job)
+        except SQLAlchemyError:
+            logger.error("database error during job retrieval", exc_info=True)
+            raise
+
+    def get_by_idempotency_key(self, idempotency_key: str) -> Job | None:
+        try:
+            query = select(DBJob).where(DBJob.idempotency_key == idempotency_key)
+            db_job = self._session.scalars(query).one_or_none()
+            return None if db_job is None else Job.from_db_model(db_job)
+        except MultipleResultsFound:
+            logger.error(
+                f"multiple results found when searching for idempotency key {idempotency_key}"
+            )
+            raise
         except SQLAlchemyError:
             logger.error("database error during job retrieval", exc_info=True)
             raise
