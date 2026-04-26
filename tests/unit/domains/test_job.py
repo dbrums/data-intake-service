@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -226,24 +227,25 @@ class TestJobTransitions:
     )
     def test_valid_transitions(
         self,
-        job: Job,
+        job: Callable[..., Job],
         from_status: JobStatus,
         to_status: JobStatus,
         setup_transitions: list[JobStatus],
     ) -> None:
         """Test all valid state transitions."""
+        test_job = job()
         # Apply setup transitions to reach from_status
         for status in setup_transitions:
-            job.transition_to(status)
+            test_job.transition_to(status)
 
         # Verify we're in the expected from_status
-        assert job.status == from_status
+        assert test_job.status == from_status
 
         # Perform the transition
-        job.transition_to(to_status)
+        test_job.transition_to(to_status)
 
         # Verify the transition succeeded
-        assert job.status == to_status
+        assert test_job.status == to_status
 
     @pytest.mark.parametrize(
         "from_status,to_status,setup_transitions,error_msg",
@@ -280,47 +282,50 @@ class TestJobTransitions:
     )
     def test_invalid_transitions(
         self,
-        job: Job,
+        job: Callable[..., Job],
         from_status: JobStatus,
         to_status: JobStatus,
         setup_transitions: list[JobStatus],
         error_msg: str,
     ) -> None:
         """Test all invalid state transitions."""
+        test_job = job()
         # Apply setup transitions to reach from_status
         for status in setup_transitions:
-            job.transition_to(status)
+            test_job.transition_to(status)
 
         # Verify we're in the expected from_status
-        assert job.status == from_status
+        assert test_job.status == from_status
 
         # Attempt invalid transition
         with pytest.raises(InvalidJobTransitionError, match=error_msg):
-            job.transition_to(to_status)
+            test_job.transition_to(to_status)
 
         # Verify status unchanged
-        assert job.status == from_status
+        assert test_job.status == from_status
 
-    def test_full_success_flow(self, job: Job) -> None:
+    def test_full_success_flow(self, job: Callable[..., Job]) -> None:
         """Test complete happy path: QUEUED → RUNNING → SUCCEEDED."""
-        assert job.status == JobStatus.QUEUED
-        job.transition_to(JobStatus.RUNNING)
-        assert job.status == JobStatus.RUNNING  # type: ignore[comparison-overlap]
-        job.transition_to(JobStatus.SUCCEEDED)
-        assert job.status == JobStatus.SUCCEEDED
+        test_job = job()
+        assert test_job.status == JobStatus.QUEUED
+        test_job.transition_to(JobStatus.RUNNING)
+        assert test_job.status == JobStatus.RUNNING  # type: ignore[comparison-overlap]
+        test_job.transition_to(JobStatus.SUCCEEDED)
+        assert test_job.status == JobStatus.SUCCEEDED
 
-    def test_full_retry_flow(self, job: Job) -> None:
+    def test_full_retry_flow(self, job: Callable[..., Job]) -> None:
         """Test complete retry path: QUEUED → RUNNING → FAILED → RETRY_SCHEDULED → QUEUED → RUNNING → SUCCEEDED."""
-        assert job.status == JobStatus.QUEUED
-        job.transition_to(JobStatus.RUNNING)
-        assert job.status == JobStatus.RUNNING  # type: ignore[comparison-overlap]
-        job.transition_to(JobStatus.FAILED)
-        assert job.status == JobStatus.FAILED
-        job.transition_to(JobStatus.RETRY_SCHEDULED)
-        assert job.status == JobStatus.RETRY_SCHEDULED
-        job.transition_to(JobStatus.QUEUED)
-        assert job.status == JobStatus.QUEUED
-        job.transition_to(JobStatus.RUNNING)
-        assert job.status == JobStatus.RUNNING
-        job.transition_to(JobStatus.SUCCEEDED)
-        assert job.status == JobStatus.SUCCEEDED
+        test_job = job()
+        assert test_job.status == JobStatus.QUEUED
+        test_job.transition_to(JobStatus.RUNNING)
+        assert test_job.status == JobStatus.RUNNING  # type: ignore[comparison-overlap]
+        test_job.transition_to(JobStatus.FAILED)
+        assert test_job.status == JobStatus.FAILED
+        test_job.transition_to(JobStatus.RETRY_SCHEDULED)
+        assert test_job.status == JobStatus.RETRY_SCHEDULED
+        test_job.transition_to(JobStatus.QUEUED)
+        assert test_job.status == JobStatus.QUEUED
+        test_job.transition_to(JobStatus.RUNNING)
+        assert test_job.status == JobStatus.RUNNING
+        test_job.transition_to(JobStatus.SUCCEEDED)
+        assert test_job.status == JobStatus.SUCCEEDED

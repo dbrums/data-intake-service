@@ -1,10 +1,12 @@
+import datetime
 import logging
 from uuid import UUID
 
+from app.core.config import settings
 from app.core.logging import set_job_id
-from app.domains.job import DataSource, Job
+from app.domains.job import DataSource, Job, JobStatus
 from app.repositories.job_repository import AbstractJobRepository
-from app.schemas.job import JobCreate
+from app.schemas.job import JobCreate, JobFail
 
 logger = logging.getLogger(__name__)
 
@@ -13,11 +15,54 @@ class JobNotFoundError(Exception):
     pass
 
 
+class IdempotentCreateInTerminalStateError(Exception):
+    pass
+
+
+class IdempotencyKeyConflictError(Exception):
+    pass
+
+
+class MaxRetriesExceededError(Exception):
+    pass
+
+
 class JobService:
     def __init__(self, repo: AbstractJobRepository):
         self._repo = repo
 
+    def _request_matches_job(self, payload: JobCreate, job: Job) -> bool:
+        return (
+            payload.dataset_type == job.dataset_type
+            and payload.schema_version == job.schema_version
+            and payload.source_type == job.source_type
+            and payload.source_uri == job.source_uri
+        )
+
     def create_job(self, payload: JobCreate) -> Job:
+        if payload.idempotency_key is not None:
+            logger.info(
+                f"checking existing job for idempotency key {payload.idempotency_key}"
+            )
+            existing_job = self._repo.get_by_idempotency_key(payload.idempotency_key)
+            if existing_job is not None:
+                if existing_job.is_terminal_state():
+                    logger.warning(
+                        f"Idempotency conflict: key {payload.idempotency_key} in terminal state {existing_job.status}"
+                    )
+                    raise IdempotentCreateInTerminalStateError(
+                        "request cannot be retried - original job has completed"
+                    )
+                if not self._request_matches_job(payload, existing_job):
+                    logger.warning(
+                        "idempotent create conflict: request parameters differ from original"
+                    )
+                    raise IdempotencyKeyConflictError(
+                        f"Request with idempotency key {payload.idempotency_key} "
+                        f"has different parameters than original request"
+                    )
+                logger.info("returning existing job for idempotency key")
+                return existing_job
         data_source = DataSource(
             type=payload.source_type,
             uri=payload.source_uri,
@@ -26,6 +71,7 @@ class JobService:
             dataset_type=payload.dataset_type,
             schema_version=payload.schema_version,
             source=data_source,
+            idempotency_key=payload.idempotency_key,
         )
         set_job_id(in_job.id)
         logger.info(
@@ -54,3 +100,72 @@ class JobService:
         jobs = self._repo.list_all()
         logger.info("jobs retrieved successfully")
         return jobs
+
+    def start_job(self, job_id: UUID) -> Job:
+        set_job_id(job_id)
+        logger.info("starting job")
+        job = self.get_job_by_id(job_id)
+        job.transition_to(JobStatus.RUNNING)
+        job.started_at = datetime.datetime.now(datetime.UTC)
+        updated_job = self._repo.update(job)
+        logger.info("job started successfully")
+        return updated_job
+
+    def complete_job(self, job_id: UUID) -> Job:
+        set_job_id(job_id)
+        logger.info("completing job")
+        job = self.get_job_by_id(job_id)
+        job.transition_to(JobStatus.SUCCEEDED)
+        job.finished_at = datetime.datetime.now(datetime.UTC)
+        updated_job = self._repo.update(job)
+        logger.info("job completed successfully")
+        return updated_job
+
+    def fail_job(self, payload: JobFail, job_id: UUID) -> Job:
+        set_job_id(job_id)
+        logger.info("failing job")
+        job = self.get_job_by_id(job_id)
+        job.transition_to(JobStatus.FAILED)
+        job.finished_at = datetime.datetime.now(datetime.UTC)
+        job.error_code = payload.error_code
+        job.error_message = payload.error_message
+        updated_job = self._repo.update(job)
+        logger.info("job failed successfully")
+        return updated_job
+
+    def retry_job(self, job_id: UUID) -> Job:
+        set_job_id(job_id)
+        logger.info("retrying job")
+        job = self.get_job_by_id(job_id)
+
+        if job.retry_count >= settings.MAX_JOB_RETRIES:
+            logger.warning("maximum retry limit exceeded")
+            raise MaxRetriesExceededError(
+                f"Cannot retry job: maximum retry limit ({settings.MAX_JOB_RETRIES}) exceeded"
+            )
+
+        # immediately transition to QUEUED
+        # will add delay in later phase
+        job.transition_to(JobStatus.RETRY_SCHEDULED)
+        job.transition_to(JobStatus.QUEUED)
+        # timestamps cleared since job hasn't been started yet in this retry attempt
+        job.started_at = None
+        job.finished_at = None
+        job.error_code = None
+        job.error_message = None
+
+        updated_job = self._repo.update(job)
+        logger.info(
+            "job retried successfully", extra={"retry_count": updated_job.retry_count}
+        )
+        return updated_job
+
+    def cancel_job(self, job_id: UUID) -> Job:
+        set_job_id(job_id)
+        logger.info("cancelling job")
+        job = self.get_job_by_id(job_id)
+        job.transition_to(JobStatus.CANCELLED)
+        job.finished_at = datetime.datetime.now(datetime.UTC)
+        updated_job = self._repo.update(job)
+        logger.info("job cancelled successfully")
+        return updated_job

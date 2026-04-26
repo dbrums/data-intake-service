@@ -12,6 +12,12 @@ class InvalidJobTransitionError(Exception):
     pass
 
 
+class IdempotencyKeyIntegrityError(Exception):
+    """Raised when database integrity violation on idempotency_key is detected."""
+
+    pass
+
+
 @dataclass
 class DataSource:
     """Value object - no identity"""
@@ -44,10 +50,20 @@ class Job:
     source_type: str
     source_uri: str
     created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    retry_count: int = 0
+    idempotency_key: str | None = None
 
     @classmethod
     def create_new(
-        cls, dataset_type: str, schema_version: str, source: DataSource
+        cls,
+        dataset_type: str,
+        schema_version: str,
+        source: DataSource,
+        idempotency_key: str | None = None,
     ) -> Job:
         return cls(
             id=uuid4(),
@@ -56,6 +72,7 @@ class Job:
             schema_version=schema_version,
             source_type=source.type,
             source_uri=source.uri,
+            idempotency_key=idempotency_key,
             created_at=datetime.now(UTC),
         )
 
@@ -67,8 +84,14 @@ class Job:
             schema_version=db_job.schema_version,
             source_type=db_job.source_type,
             source_uri=db_job.source_uri,
+            idempotency_key=db_job.idempotency_key,
             status=JobStatus(db_job.status),
             created_at=db_job.created_at,
+            started_at=db_job.started_at,
+            finished_at=db_job.finished_at,
+            error_code=db_job.error_code,
+            error_message=db_job.error_message,
+            retry_count=db_job.retry_count,
         )
 
     def to_db_model(self) -> DBJob:
@@ -79,7 +102,13 @@ class Job:
             schema_version=self.schema_version,
             source_type=self.source_type,
             source_uri=self.source_uri,
+            idempotency_key=self.idempotency_key,
             created_at=self.created_at,
+            started_at=self.started_at,
+            finished_at=self.finished_at,
+            error_code=self.error_code,
+            error_message=self.error_message,
+            retry_count=self.retry_count,
         )
 
     def transition_to(self, new_status: JobStatus) -> None:
@@ -88,6 +117,8 @@ class Job:
             raise InvalidJobTransitionError(
                 f"Cannot transition from {self.status} to {new_status}"
             )
+        if new_status == JobStatus.RETRY_SCHEDULED:
+            self.retry_count += 1
 
         self.status = new_status
 
@@ -95,10 +126,21 @@ class Job:
         """FSM transition rules"""
         VALID_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
             JobStatus.QUEUED: {JobStatus.RUNNING, JobStatus.CANCELLED},
-            JobStatus.RUNNING: {JobStatus.SUCCEEDED, JobStatus.FAILED},
+            JobStatus.RUNNING: {
+                JobStatus.SUCCEEDED,
+                JobStatus.FAILED,
+                JobStatus.CANCELLED,
+            },
             JobStatus.FAILED: {JobStatus.RETRY_SCHEDULED, JobStatus.CANCELLED},
-            JobStatus.RETRY_SCHEDULED: {JobStatus.QUEUED},
+            JobStatus.RETRY_SCHEDULED: {JobStatus.QUEUED, JobStatus.CANCELLED},
             JobStatus.SUCCEEDED: set(),  # Terminal state
             JobStatus.CANCELLED: set(),  # Terminal state
         }
         return new_status in VALID_TRANSITIONS[self.status]
+
+    def is_terminal_state(self) -> bool:
+        return self.status in {
+            JobStatus.SUCCEEDED,
+            JobStatus.FAILED,
+            JobStatus.CANCELLED,
+        }

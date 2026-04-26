@@ -2,10 +2,13 @@
 
 This document captures the domain knowledge, entities, boundaries, and patterns for the Data Intake and Validation Service.
 
+> **Implementation Note**: This document describes the complete domain model. For phased implementation, see [docs/implementation-plan.md](implementation-plan.md) which shows when each domain is introduced (Job Management in Phase 1, Validation Domain in Phase 5, etc.).
+
 ## Core Domains Identified
 
 ### 1. Job Management Domain (Core Aggregate)
 
+**Implementation**: Phases 1-3
 **Purpose:** Orchestrate validation workflows through explicit state transitions
 
 **Key Entities:**
@@ -27,6 +30,7 @@ This document captures the domain knowledge, entities, boundaries, and patterns 
 
 ### 2. Validation Domain
 
+**Implementation**: Phase 5
 **Purpose:** Enforce data quality through multi-phase validation pipeline
 
 **Validation Phases (Order Matters):**
@@ -51,6 +55,7 @@ This document captures the domain knowledge, entities, boundaries, and patterns 
 
 ### 3. Schema Registry Domain
 
+**Implementation**: Phase 5
 **Purpose:** Version-controlled data contracts as first-class entities
 
 **Key Entities:**
@@ -72,6 +77,7 @@ This document captures the domain knowledge, entities, boundaries, and patterns 
 
 ### 4. Data Source Domain
 
+**Implementation**: Phase 5 (URL pull), Future (file uploads, S3)
 **Purpose:** Abstract different ingestion mechanisms
 
 **Source Types:**
@@ -86,6 +92,7 @@ This document captures the domain knowledge, entities, boundaries, and patterns 
 
 ### 5. Idempotency Domain (Cross-cutting)
 
+**Implementation**: Phase 3
 **Purpose:** Prevent duplicate processing from retries
 
 **Key Concepts:**

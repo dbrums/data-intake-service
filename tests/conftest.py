@@ -1,5 +1,5 @@
 import os
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from typing import Any
 
 import pytest
@@ -12,7 +12,7 @@ from app.api.deps import get_job_repository
 from app.db.base import Base
 from app.domains.job import Job
 from app.main import app
-from app.schemas.job import JobCreate
+from app.schemas.job import JobCreate, JobFail
 from tests.factories.job_factory import job_create_factory, job_factory
 from tests.fakes.fake_job_repository import FakeJobRepository
 
@@ -49,13 +49,24 @@ def fake_job_repo() -> FakeJobRepository:
 
 
 @pytest.fixture
-def job() -> Job:
-    return job_factory()
+def job() -> Callable[..., Job]:
+    def _create_job(**overrides: Any) -> Job:
+        return job_factory(**overrides)
+
+    return _create_job
 
 
 @pytest.fixture
-def job_create() -> JobCreate:
-    return job_create_factory()
+def job_create() -> Callable[..., JobCreate]:
+    def _create_job_create(**overrides: Any) -> JobCreate:
+        return job_create_factory(**overrides)
+
+    return _create_job_create
+
+
+@pytest.fixture
+def job_fail() -> JobFail:
+    return JobFail(error_code="ERROR_CODE", error_message="error_message")
 
 
 @pytest.fixture(scope="session")

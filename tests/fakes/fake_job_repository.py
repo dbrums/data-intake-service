@@ -15,5 +15,15 @@ class FakeJobRepository(AbstractJobRepository):
     def get_by_id(self, job_id: UUID) -> Job | None:
         return self._jobs.get(job_id)
 
+    def get_by_idempotency_key(self, idempotency_key: str) -> Job | None:
+        for job in self._jobs.values():
+            if job.idempotency_key == idempotency_key:
+                return job
+        return None
+
     def list_all(self) -> list[Job]:
         return list(self._jobs.values())
+
+    def update(self, job: Job) -> Job:
+        self._jobs[job.id] = job
+        return job
