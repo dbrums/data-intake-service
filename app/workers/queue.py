@@ -9,6 +9,10 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Lazy-initialized global queue
+_queue: Queue | None = None
+_redis_conn: Redis | None = None
+
 
 def _init_redis() -> Redis:
     """Initialize Redis connection with error handling."""
@@ -35,12 +39,17 @@ def _init_redis() -> Redis:
         raise
 
 
-# Initialize Redis connection and queue
-redis_conn = _init_redis()
-queue = Queue(
-    name="default",
-    connection=redis_conn,
-    default_timeout=600,
-)
+def get_queue() -> Queue:
+    """Get or initialize the RQ queue (lazy initialization)."""
+    global _queue, _redis_conn
 
-logger.info("RQ queue initialized: %s", queue.name)
+    if _queue is None:
+        _redis_conn = _init_redis()
+        _queue = Queue(
+            name="default",
+            connection=_redis_conn,
+            default_timeout=600,
+        )
+        logger.info("RQ queue initialized: %s", _queue.name)
+
+    return _queue

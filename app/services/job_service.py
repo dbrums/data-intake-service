@@ -84,11 +84,12 @@ class JobService:
         job = self._repo.create(in_job)
         logger.info("job created successfully")
 
-        # Lazy import to avoid initializing Redis at module import time
-        from app.workers.queue import queue
+        # Enqueue job for background processing (lazy initialization)
+        from app.workers.queue import get_queue
         from app.workers.tasks import execute_validation_job
 
         logger.info("job queued")
+        queue = get_queue()
         queue.enqueue(execute_validation_job, job.id)
         return job
 

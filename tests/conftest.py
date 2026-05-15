@@ -1,6 +1,7 @@
 import os
 from collections.abc import Callable, Generator
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -96,6 +97,15 @@ def db_session(db_engine: Engine) -> Generator[Session]:
             session.execute(table.delete())
         session.commit()
         session.close()
+
+
+@pytest.fixture(autouse=True)
+def mock_redis_queue() -> Generator[MagicMock]:
+    """Mock Redis queue for all tests to avoid Redis dependency."""
+    with patch("app.workers.queue.get_queue") as mock_get_queue:
+        mock_queue = MagicMock()
+        mock_get_queue.return_value = mock_queue
+        yield mock_queue
 
 
 @pytest.fixture
