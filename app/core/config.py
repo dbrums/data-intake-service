@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     ENV: Environment = Environment.LOCAL
     DEBUG: bool = False
     DATABASE_URL: str = "sqlite:///./data_intake.db"
+    REDIS_URL: str = "redis://default:redis@localhost:6379/0"
     LOG_LEVEL: str = "INFO"
     MAX_JOB_RETRIES: int = 3
 

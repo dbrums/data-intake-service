@@ -21,8 +21,9 @@ RUN pip install --no-cache-dir -e ".[dev]"
 # Expose port
 EXPOSE 8000
 
-# Entrypoint script
+# Entrypoint scripts
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+COPY docker-entrypoint-worker.sh /docker-entrypoint-worker.sh
+RUN chmod +x /docker-entrypoint.sh /docker-entrypoint-worker.sh
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
