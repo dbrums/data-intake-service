@@ -40,7 +40,18 @@ def _init_redis() -> Redis:
 
 
 def get_queue() -> Queue:
-    """Get or initialize the RQ queue (lazy initialization)."""
+    """Get or initialize the RQ queue (lazy initialization).
+
+    Uses lazy initialization to avoid Redis connection attempts during
+    test collection/import. The queue is created on first access and
+    reused for subsequent calls.
+
+    Returns:
+        Queue: The initialized RQ queue instance.
+
+    Raises:
+        RedisError: If Redis connection fails.
+    """
     global _queue, _redis_conn
 
     if _queue is None:

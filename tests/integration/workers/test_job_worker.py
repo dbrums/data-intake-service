@@ -77,7 +77,7 @@ class TestJobWorkerIntegration:
     @patch("app.workers.tasks.sleep")  # Mock sleep to speed up tests
     def test_worker_processes_job_successfully(
         self,
-        mock_sleep,  # type: ignore[misc]
+        _mock_sleep,  # type: ignore[misc]
         db_session: Session,
         redis_conn: Redis,
         test_queue: Queue,
@@ -122,7 +122,7 @@ class TestJobWorkerIntegration:
     @patch("app.workers.tasks.sleep")
     def test_worker_handles_job_failure(
         self,
-        mock_sleep,  # type: ignore[misc]
+        _mock_sleep,  # type: ignore[misc]
         db_session: Session,
         redis_conn: Redis,
         test_queue: Queue,
@@ -142,7 +142,7 @@ class TestJobWorkerIntegration:
         db_session.commit()
 
         # Make the validation fail
-        mock_sleep.side_effect = Exception("Test validation failure")
+        _mock_sleep.side_effect = Exception("Test validation failure")
 
         test_queue.enqueue(execute_validation_job, job.id)  # type: ignore[call-arg]
 
@@ -248,7 +248,7 @@ class TestJobWorkerIntegration:
     @patch("app.workers.tasks.sleep")
     def test_worker_with_nonexistent_job_id(
         self,
-        mock_sleep,  # type: ignore[misc]
+        _mock_sleep,  # type: ignore[misc]
         db_session: Session,
         redis_conn: Redis,
         test_queue: Queue,

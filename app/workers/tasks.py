@@ -32,7 +32,9 @@ def execute_validation_job(job_id: UUID) -> None:
         service.complete_job(job_id)
 
     except Exception as e:
-        # Log and mark as failed (only if service was successfully created)
+        # Only mark job as failed if service was successfully created.
+        # If repo/service instantiation failed, we can't access the database
+        # to update the job status, so we just re-raise the exception.
         if service is not None:
             fail_payload = JobFail(
                 error_code="WORKER_ERROR",
