@@ -41,6 +41,7 @@ exclude = ["tests*", "alembic*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 asyncio_mode = "auto"
 addopts = ["--strict-markers", "--strict-config", "-ra"]
 
