@@ -14,6 +14,7 @@ dependencies = [
     "python-json-logger>=2.0,<5",
     "pyyaml>=6.0,<7",
     "psycopg2-binary>=2.9,<3",
+    "rq>=2.8,<3"
 ]
 
 [project.optional-dependencies]
@@ -40,6 +41,7 @@ exclude = ["tests*", "alembic*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 asyncio_mode = "auto"
 addopts = ["--strict-markers", "--strict-config", "-ra"]
 
@@ -109,5 +111,5 @@ strict_equality = true
 disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
-module = ["alembic.*", "sqlalchemy.*", "yaml"]
+module = ["alembic.*", "sqlalchemy.*", "yaml", "redis", "rq"]
 ignore_missing_imports = true

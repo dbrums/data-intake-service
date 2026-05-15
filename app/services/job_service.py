@@ -83,6 +83,16 @@ class JobService:
         )
         job = self._repo.create(in_job)
         logger.info("job created successfully")
+
+        # Enqueue job for background processing (lazy initialization)
+        # Note: If enqueue fails after DB commit, job will exist in QUEUED state
+        # but won't be in Redis queue. Future phases can add monitoring/recovery.
+        from app.workers.queue import get_queue
+        from app.workers.tasks import execute_validation_job
+
+        queue = get_queue()
+        queue.enqueue(execute_validation_job, job.id)
+        logger.info("job queued")
         return job
 
     def get_job_by_id(self, job_id: UUID) -> Job:
