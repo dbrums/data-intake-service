@@ -100,8 +100,16 @@ def db_session(db_engine: Engine) -> Generator[Session]:
 
 
 @pytest.fixture(autouse=True)
-def mock_redis_queue() -> Generator[MagicMock]:
-    """Mock Redis queue for all tests to avoid Redis dependency."""
+def mock_redis_queue(request: pytest.FixtureRequest) -> Generator[MagicMock | None]:
+    """Mock Redis queue for all tests to avoid Redis dependency.
+
+    Skips mocking for integration worker tests that need real Redis.
+    """
+    # Don't mock for integration worker tests - they use real Redis
+    if "test_job_worker" in request.node.nodeid:
+        yield None
+        return
+
     with patch("app.workers.queue.get_queue") as mock_get_queue:
         mock_queue = MagicMock()
         mock_get_queue.return_value = mock_queue
